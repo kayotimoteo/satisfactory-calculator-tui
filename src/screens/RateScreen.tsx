@@ -7,6 +7,7 @@ import { SavePrompt } from "../components/SavePrompt";
 import { useField } from "../ui/useField";
 import { useFieldNav } from "../ui/useFieldNav";
 import { copyClock } from "../lib/clipboard";
+import { copyWithStatus } from "../lib/copyStatus";
 import { saveEntry } from "../lib/storage";
 import { clockColor, theme } from "../ui/theme";
 import {
@@ -75,6 +76,26 @@ export function RateScreen({
     });
   };
 
+  const copyField = (i: number) => {
+    const vals = [
+      refs.current.machines.value,
+      refs.current.rate100.value,
+      refs.current.clock.value,
+    ];
+    const v = vals[i]?.trim() ?? "";
+    if (!v) return setStatus({ text: t.common.emptyField, tone: "warn" });
+    setStatus(copyWithStatus(v, t.common.textCopied, t.common.copyFailed));
+  };
+
+  const copyLine = () => {
+    const d = snap.current;
+    if (!d) return setStatus({ text: t.common.fillFirst, tone: "warn" });
+    const c = refs.current;
+    const word = isOutput ? t.rate.wordOutput : t.rate.wordInput;
+    const line = `${t.rate.totalOf(word)}: ${fmtFlex(d.calc.total)} /min`;
+    setStatus(copyWithStatus(line, t.common.textCopied, t.common.copyFailed));
+  };
+
   const openSave = () => {
     if (!snap.current) return setStatus({ text: t.common.nothingToSave, tone: "warn" });
     setSaving(true);
@@ -119,7 +140,7 @@ export function RateScreen({
 
   const { index, setIndex } = useFieldNav(
     3,
-    { onBack, onCopy: copy, onSave: openSave, onReset: reset, isDirty },
+    { onBack, onCopy: copy, onCopyField: copyField, onCopyLine: copyLine, onSave: openSave, onReset: reset, isDirty },
     saving,
   );
   useEffect(() => setStatus(null), [setStatus]);
@@ -140,6 +161,7 @@ export function RateScreen({
           defaultName={t.rate.defaultName(title, machines.value || "?")}
           onConfirm={confirmSave}
           onCancel={() => setSaving(false)}
+          setStatus={setStatus}
         />
       ) : null}
 

@@ -3,6 +3,7 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
 import { I18nProvider } from "./i18n";
+import { ConfigProvider } from "./ui/ConfigContext";
 
 // Default window size (columns x rows). Windows Terminal understands the ANSI
 // sequence "CSI 8 ; rows ; columns t" and resizes the window on open. Terminals
@@ -21,6 +22,8 @@ const renderer = await createCliRenderer({
 
 createRoot(renderer).render(
 	<I18nProvider>
-		<App />
+		<ConfigProvider>
+			<App />
+		</ConfigProvider>
 	</I18nProvider>,
 );

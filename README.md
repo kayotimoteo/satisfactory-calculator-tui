@@ -3,10 +3,9 @@
 Calculadora de fábrica do **Satisfactory** rodando direto no terminal, com
 interface TUI feita em [OpenTUI](https://github.com/sst/opentui) + React.
 
-É a evolução do antigo `satisfactory3.js`: a mesma matemática (com normalização
-das taxas pras frações do jogo), mas quebrada em ferramentas diretas ao ponto,
-com **clock padrão de 250%**, **histórico**, **cálculos salvos com nome** e a
-**cópia do clock pro clipboard** que continua funcionando igual.
+Normaliza taxas pras frações do jogo e oferece ferramentas diretas ao ponto:
+**clock padrão de 250%**, **histórico**, **cálculos salvos com nome** e
+**cópia do clock pro clipboard**.
 
 ## Rodar (desenvolvimento)
 
@@ -20,7 +19,28 @@ bun dev
 Requer [Bun](https://bun.sh) — o app roda o TypeScript direto, sem etapa de
 build. Sair: `Ctrl+C` ou a opção **Sair** no menu.
 
-## Instalar como comando `sfcalc`
+## Instalar (baixar pronto)
+
+Não quer instalar nada de dev? Baixe o executável direto das
+[**Releases**](../../releases):
+
+1. Pegue o arquivo `sfcalc-vX.Y.Z-windows-x64.exe` da release mais recente.
+2. (Opcional) Renomeie pra `sfcalc.exe` e coloque numa pasta que esteja no seu
+   PATH — aí é só digitar `sfcalc` em qualquer terminal. Ou rode o `.exe`
+   direto, clicando duas vezes ou pelo caminho.
+
+É um arquivo só, autocontido: **não precisa de Bun, Node nem `node_modules`**.
+
+- **Conferir integridade (opcional):** cada release traz um `.sha256`. Compare
+  com `(Get-FileHash .\sfcalc-vX.Y.Z-windows-x64.exe -Algorithm SHA256).Hash`.
+- **Aviso do Windows:** como o `.exe` não é assinado, o SmartScreen pode mostrar
+  "Windows protegeu seu computador" na primeira execução — clique em "Mais
+  informações" → "Executar assim mesmo". É esperado.
+
+> Por enquanto só há binário pra **Windows x64**. Em macOS/Linux, use o fluxo de
+> desenvolvimento acima ou compile localmente (próxima seção).
+
+## Instalar como comando `sfcalc` (compilando)
 
 Pra ter o app como um comando global no terminal, gere o executável standalone:
 
@@ -48,6 +68,20 @@ Detalhes:
 - **Outra máquina:** copie `dist/satisfactory-calculator-tui.exe` (ou o
   `sfcalc.exe` instalado) pra qualquer pasta do PATH de lá. É um arquivo só,
   sem Node, Bun ou `node_modules`.
+
+## Publicar uma nova versão (mantenedor)
+
+A release é automática: empurrar uma tag `v*` dispara o workflow
+`.github/workflows/release.yml`, que compila o `.exe` de Windows x64 e cria a
+GitHub Release com o binário + `.sha256` anexados.
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+As notas da release são geradas automaticamente a partir dos commits desde a
+tag anterior.
 
 ## Ferramentas (menu)
 
@@ -98,7 +132,7 @@ src/
   index.tsx          # bootstrap do renderer
   App.tsx            # roteamento de telas, status/toast, atalhos globais
   lib/
-    satisfactory.ts  # núcleo de cálculo puro (portado do satisfactory3.js)
+    satisfactory.ts  # núcleo de cálculo puro
     clipboard.ts     # cópia pro clipboard (clip/pbcopy/xclip/wl-copy)
     storage.ts       # histórico/salvos em JSON
   ui/                # tema + hooks (useField, useFieldNav)
@@ -109,5 +143,5 @@ src/
 ## Notas sobre a cópia do clock
 
 O valor é formatado como o jogo espera (vírgula decimal, sem zeros sobrando),
-exatamente como o script original fazia — ex.: `83,333333`. No Windows usa o
+ex.: `83,333333`. No Windows usa o
 `clip.exe`; em macOS/Linux cai pra `pbcopy` / `wl-copy` / `xclip`.

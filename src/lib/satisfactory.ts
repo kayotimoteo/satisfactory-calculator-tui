@@ -357,6 +357,9 @@ export function calcularLayoutPorEntrada(
   fileiras: number,
   clockEscolhido: number,
   saida100: number | null = null,
+  // Per-row throughput limit. Defaults to the historical Mk.6 belt value, but
+  // the UI passes the active transport tier (belt/pipe) from the user config.
+  limite: number = LIMITE_FILEIRA,
 ): ResultadoLayout {
   if (metaEntradaTotal <= 0) {
     throw new LayoutError({ code: "targetNonPositive" });
@@ -376,11 +379,11 @@ export function calcularLayoutPorEntrada(
 
   const entradaAlvoPorFileira = metaEntradaTotal / fileiras;
 
-  if (entradaAlvoPorFileira > LIMITE_FILEIRA + EPSILON) {
+  if (entradaAlvoPorFileira > limite + EPSILON) {
     throw new LayoutError({
       code: "rowLimitExceeded",
       perRow: entradaAlvoPorFileira,
-      limit: LIMITE_FILEIRA,
+      limit: limite,
     });
   }
 
@@ -468,7 +471,10 @@ export function calcularLayoutPorEntrada(
  * `ceil(target / LIMITE_FILEIRA)` rows. Returns null if the target is invalid
  * (<= 0).
  */
-export function fileirasMinimasRecomendadas(metaEntradaTotal: number): number | null {
+export function fileirasMinimasRecomendadas(
+  metaEntradaTotal: number,
+  limite: number = LIMITE_FILEIRA,
+): number | null {
   if (!Number.isFinite(metaEntradaTotal) || metaEntradaTotal <= 0) return null;
-  return Math.max(1, Math.ceil(metaEntradaTotal / LIMITE_FILEIRA));
+  return Math.max(1, Math.ceil(metaEntradaTotal / limite));
 }

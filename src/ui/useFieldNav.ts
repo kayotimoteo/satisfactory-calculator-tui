@@ -3,8 +3,19 @@ import { useRef, useState } from "react";
 
 export interface FieldNavActions {
   onBack: () => void;
+  /** bare C — clock (or primary calc value) */
   onCopy?: () => void;
+  /** bare V — focused field's current text */
+  onCopyField?: (fieldIndex: number) => void;
+  /** bare Y — main result line / summary */
+  onCopyLine?: () => void;
   onSave?: () => void;
+  /**
+   * Bare `M`: toggle the active transport (belt/pipe). Same safety rationale as
+   * bare `C` — every field is numeric, so the letter never reaches state, and
+   * `paused` turns it off while the SavePrompt is open.
+   */
+  onToggle?: () => void;
   /** restores the fields to the form's initial state (moves back to the 1st field) */
   onReset?: () => void;
   /**
@@ -28,7 +39,8 @@ export interface FieldNavActions {
  *    reset path: many Windows terminals don't send the Ctrl modifier with
  *    Backspace, so Ctrl+Backspace never fired there. It still works as a
  *    one-shot reset on terminals that do report it (e.g. with kitty keyboard).
- *  - C copies, Ctrl+S saves
+ *  - C copies the clock, V copies the focused field, Y copies the result line,
+ *    Ctrl+S saves
  * Ctrl/Esc are used so they don't "leak" as text; bare C is a safe exception
  * because every field on these screens is numeric (Field's sanitizer drops the
  * letter) and `paused` turns the copy off while the SavePrompt — the only
@@ -69,6 +81,11 @@ export function useFieldNav(
       return reset();
     }
     if (!key.ctrl && !key.meta && key.name === "c") return actions.onCopy?.();
+    if (!key.ctrl && !key.meta && key.name === "v") {
+      return actions.onCopyField?.(idxRef.current);
+    }
+    if (!key.ctrl && !key.meta && key.name === "y") return actions.onCopyLine?.();
+    if (!key.ctrl && !key.meta && key.name === "m") return actions.onToggle?.();
     if (key.ctrl && key.name === "s") return actions.onSave?.();
     if (key.name === "return") {
       // Advance the focus; on the last field wrap around to the first (no clear).

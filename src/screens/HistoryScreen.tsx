@@ -3,6 +3,7 @@ import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { Panel } from "../components/Panel";
 import { copyClock } from "../lib/clipboard";
+import { copyWithStatus } from "../lib/copyStatus";
 import {
   HISTORY_PATH,
   loadHistory,
@@ -48,6 +49,17 @@ export function HistoryScreen({
     setActive(idx);
   };
 
+  const copyPath = () => {
+    setStatus(copyWithStatus(HISTORY_PATH, () => t.common.pathCopied, t.common.copyFailed));
+  };
+
+  const copySummary = () => {
+    const current = listRef.current[idxRef.current];
+    if (!current) return setStatus({ text: t.history.emptyText, tone: "warn" });
+    const line = `${current.nome} — ${current.resumo}`;
+    setStatus(copyWithStatus(line, t.common.textCopied, t.common.copyFailed));
+  };
+
   useKeyboard((key) => {
     if (key.name === "escape") return onBack();
     const current = listRef.current[idxRef.current];
@@ -67,6 +79,8 @@ export function HistoryScreen({
         tone: ok ? "ok" : "err",
       });
     }
+    if (!key.ctrl && !key.meta && key.name === "y") return copySummary();
+    if (!key.ctrl && !key.meta && key.name === "p") return copyPath();
     if (key.name === "d" || key.name === "delete" || key.name === "backspace") {
       if (!current) return;
       const updated = removeEntry(current.id);
@@ -127,7 +141,17 @@ export function HistoryScreen({
         </Panel>
       )}
 
-      <text fg={theme.muted}>{HISTORY_PATH}</text>
+      <box
+        onMouseDown={(e) => {
+          if (e.button === 0) copyPath();
+        }}
+      >
+        <text fg={theme.muted}>
+          {HISTORY_PATH}
+          {"  ·  "}
+          <span fg={theme.accent}>P</span> {t.history.pathHint}
+        </text>
+      </box>
     </box>
   );
 }

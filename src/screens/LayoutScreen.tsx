@@ -7,6 +7,7 @@ import { SavePrompt } from "../components/SavePrompt";
 import { useField } from "../ui/useField";
 import { useFieldNav } from "../ui/useFieldNav";
 import { copyClock } from "../lib/clipboard";
+import { copyWithStatus } from "../lib/copyStatus";
 import { saveEntry } from "../lib/storage";
 import { theme } from "../ui/theme";
 import {
@@ -21,12 +22,18 @@ import {
   parseNumero,
 } from "../lib/satisfactory";
 import type { LayoutErrorData } from "../lib/satisfactory";
+import { useConfig } from "../ui/ConfigContext";
+import { activeTier, limiteTransporte, type TransportType } from "../lib/config";
 import { useT } from "../i18n";
 import type { ScreenProps } from "./types";
 
 // FULL LAYOUT from the desired input (the "powerful" mode).
 export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
   const t = useT();
+  const { config, update } = useConfig();
+  // Per-row throughput limit comes from the active transport (belt/pipe), set in
+  // the config screen and toggled here with M.
+  const limite = limiteTransporte(config);
   // Initial form values (the "default" the reset goes back to).
   const initial = {
     targetInput: seed?.metaEntrada ?? "",
@@ -60,7 +67,7 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
     const outNorm = infoOutput ? infoOutput.valorNormalizado : null;
 
     try {
-      const base = calcularLayoutPorEntrada(target, infoInput.valorNormalizado, rws, clk, outNorm);
+      const base = calcularLayoutPorEntrada(target, infoInput.valorNormalizado, rws, clk, outNorm, limite);
       return { ok: true as const, base, infoInput, infoOutput };
     } catch (e) {
       // The calc core throws locale-free LayoutError codes; the message is built
@@ -68,7 +75,7 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
       if (e instanceof LayoutError) return { ok: false as const, error: e.data };
       throw e;
     }
-  }, [targetInput.value, input100.value, output100.value, clock.value, rows.value]);
+  }, [targetInput.value, input100.value, output100.value, clock.value, rows.value, limite]);
 
   // Turns a typed layout error into a translated, formatted message.
   const errorText = (err: LayoutErrorData): string => {
@@ -94,8 +101,8 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
   // Minimum recommended number of rows, updated as the target is typed.
   const minRows = useMemo(() => {
     const target = parseNumero(targetInput.value);
-    return target === null ? null : fileirasMinimasRecomendadas(target);
-  }, [targetInput.value]);
+    return target === null ? null : fileirasMinimasRecomendadas(target, limite);
+  }, [targetInput.value, limite]);
   const currentRows = parseInteiroPositivo(rows.value);
   const rowsInsufficient =
     minRows !== null && currentRows !== null && currentRows < minRows;
@@ -132,6 +139,13 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
   const refs = useRef({ targetInput, input100, output100, clock, rows });
   refs.current = { targetInput, input100, output100, clock, rows };
 
+  // Live transport, read via a ref so the once-bound M handler isn't stale.
+  const transportRef = useRef<TransportType>(config.transport);
+  transportRef.current = config.transport;
+  const toggleTransport = () => {
+    update({ transport: transportRef.current === "belt" ? "pipe" : "belt" });
+  };
+
   const copy = () => {
     const d = snap.current;
     if (!d || !d.ok) return setStatus({ text: t.layout.noCopy, tone: "warn" });
@@ -140,6 +154,32 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
       text: ok ? t.layout.copyOk(text) : t.common.copyFailed,
       tone: ok ? "ok" : "err",
     });
+  };
+
+  const copyField = (i: number) => {
+    const c = refs.current;
+    const vals = [
+      c.targetInput.value,
+      c.input100.value,
+      c.output100.value,
+      c.clock.value,
+      c.rows.value,
+    ];
+    const v = vals[i]?.trim() ?? "";
+    if (!v) return setStatus({ text: t.common.emptyField, tone: "warn" });
+    setStatus(copyWithStatus(v, t.common.textCopied, t.common.copyFailed));
+  };
+
+  const copyLine = () => {
+    const d = snap.current;
+    if (!d || !d.ok) return setStatus({ text: t.layout.noCopy, tone: "warn" });
+    const c = refs.current;
+    const line = t.layout.summary(
+      `${d.base.totalMaquinas}`,
+      c.rows.value,
+      fmt(d.base.clockExato, 4),
+    );
+    setStatus(copyWithStatus(line, t.common.textCopied, t.common.copyFailed));
   };
 
   const openSave = () => {
@@ -198,7 +238,16 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
 
   const { index, setIndex } = useFieldNav(
     5,
-    { onBack, onCopy: copy, onSave: openSave, onReset: reset, isDirty },
+    {
+      onBack,
+      onCopy: copy,
+      onCopyField: copyField,
+      onCopyLine: copyLine,
+      onSave: openSave,
+      onReset: reset,
+      isDirty,
+      onToggle: toggleTransport,
+    },
     saving,
   );
   useEffect(() => setStatus(null), [setStatus]);
@@ -231,6 +280,7 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
           defaultName={t.layout.defaultName(targetInput.value || "?")}
           onConfirm={confirmSave}
           onCancel={() => setSaving(false)}
+          setStatus={setStatus}
         />
       ) : null}
 
@@ -241,6 +291,15 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
       >
         <text fg={theme.accent} attributes={TextAttributes.BOLD}>{t.layout.title}</text>
         <text fg={theme.muted}>{t.layout.subtitle}</text>
+
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textDim}>{t.config.activeMode}:</text>
+          <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+            {`${config.transport === "belt" ? t.config.belt : t.config.pipe} ` +
+              `${t.config.mk(activeTier(config).mk)} (${t.config.rate(limite)})`}
+          </text>
+          <text fg={theme.muted}>{`· ${t.config.toggleHint}`}</text>
+        </box>
 
         <Panel title={t.common.dataPanel}>
           <Field key={`metaEntrada-${formKey}`} label={t.layout.fieldTargetInput} value={targetInput.value} focused={focus === 0} onFocusRequest={focusField(0)} onInput={targetInput.set} placeholder="/min" hint={t.common.itemsPerMin} numeric="decimal" />

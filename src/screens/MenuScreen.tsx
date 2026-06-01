@@ -14,6 +14,7 @@ export function MenuScreen({ onSelect }: { onSelect: (id: string) => void }) {
     { id: "saida", label: m.saida.label, desc: m.saida.desc },
     { id: "entrada", label: m.entrada.label, desc: m.entrada.desc },
     { id: "history", label: m.history.label, desc: m.history.desc },
+    { id: "config", label: m.config.label, desc: m.config.desc },
     { id: "sair", label: m.sair.label, desc: m.sair.desc },
   ];
   return (

@@ -7,7 +7,9 @@ import { ClockScreen } from "./screens/ClockScreen";
 import { RateScreen } from "./screens/RateScreen";
 import { LayoutScreen } from "./screens/LayoutScreen";
 import { HistoryScreen } from "./screens/HistoryScreen";
+import { ConfigScreen } from "./screens/ConfigScreen";
 import type { HistoryEntry } from "./lib/storage";
+import { configExists } from "./lib/config";
 import { theme } from "./ui/theme";
 import { useT } from "./i18n";
 
@@ -21,7 +23,8 @@ type Route =
   | { name: "saida"; seed?: Record<string, string>; origin?: Origin }
   | { name: "entrada"; seed?: Record<string, string>; origin?: Origin }
   | { name: "layout"; seed?: Record<string, string>; origin?: Origin }
-  | { name: "history" };
+  | { name: "history" }
+  | { name: "config"; firstRun?: boolean };
 
 export function App() {
   const renderer = useRenderer();
@@ -32,6 +35,8 @@ export function App() {
     { key: "Enter", label: t.hints.next },
     { key: "Ctrl+S", label: t.hints.save },
     { key: "C", label: t.hints.copy },
+    { key: "V", label: t.hints.copyField },
+    { key: "Y", label: t.hints.copyLine },
     { key: "Esc", label: t.hints.clearBack },
   ];
   const HINTS_MENU: Hint[] = [
@@ -43,11 +48,25 @@ export function App() {
     { key: "↑↓", label: t.hints.navigate },
     { key: "Enter", label: t.hints.reopen },
     { key: "C", label: t.hints.copy },
+    { key: "Y", label: t.hints.copySummary },
+    { key: "P", label: t.hints.copyPath },
     { key: "d", label: t.hints.delete },
     { key: "Esc", label: t.hints.back },
   ];
+  const HINTS_CONFIG: Hint[] = [
+    { key: "Tab", label: t.hints.list },
+    { key: "↑↓", label: t.hints.navigate },
+    { key: "Enter", label: t.hints.select },
+    { key: "Esc", label: t.hints.back },
+  ];
+  // Layout is the one calc screen that uses the transport limit, so it gets the
+  // extra M toggle in its legend.
+  const HINTS_LAYOUT: Hint[] = [...HINTS_CALC, { key: "M", label: t.hints.toggle }];
 
-  const [route, setRoute] = useState<Route>({ name: "menu" });
+  // First run (no config file yet) opens the settings screen straight away.
+  const [route, setRoute] = useState<Route>(() =>
+    configExists() ? { name: "menu" } : { name: "config", firstRun: true },
+  );
   const [status, setStatusState] = useState<StatusMsg | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -73,6 +92,7 @@ export function App() {
       process.exit(0);
     }
     if (id === "history") return setRoute({ name: "history" });
+    if (id === "config") return setRoute({ name: "config" });
     setRoute({ name: id, origin: "menu" } as Route);
   };
 
@@ -92,7 +112,11 @@ export function App() {
       ? HINTS_MENU
       : route.name === "history"
         ? HINTS_HIST
-        : HINTS_CALC;
+        : route.name === "config"
+          ? HINTS_CONFIG
+          : route.name === "layout"
+            ? HINTS_LAYOUT
+            : HINTS_CALC;
 
   const seedKey = "seed" in route && route.seed ? JSON.stringify(route.seed) : "";
 
@@ -101,7 +125,9 @@ export function App() {
       ? undefined
       : route.name === "history"
         ? t.history.title
-        : t.header.subtitle(t.modes[route.name]);
+        : route.name === "config"
+          ? t.config.title
+          : t.header.subtitle(t.modes[route.name]);
 
   return (
     <box
@@ -129,6 +155,9 @@ export function App() {
         )}
         {route.name === "history" && (
           <HistoryScreen onBack={goMenu} setStatus={setStatus} onOpen={onOpenHistory} />
+        )}
+        {route.name === "config" && (
+          <ConfigScreen onDone={goMenu} setStatus={setStatus} firstRun={route.firstRun} />
         )}
       </box>
 

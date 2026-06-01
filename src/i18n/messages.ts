@@ -43,7 +43,11 @@ const ptBR = {
     field: "campo",
     next: "próximo",
     save: "salvar",
-    copy: "copiar",
+    copy: "copiar clock",
+    copyField: "copiar campo",
+    copyLine: "copiar resultado",
+    copyPath: "copiar caminho",
+    copySummary: "copiar resumo",
     clearBack: "limpar/voltar",
     navigate: "navegar",
     open: "abrir",
@@ -53,11 +57,17 @@ const ptBR = {
     back: "voltar",
     arrowsMouse: "↑↓/mouse",
     enterClick: "Enter/clique",
+    list: "lista",
+    select: "selecionar",
+    toggle: "esteira/cano",
   },
 
   // Shared across calc screens.
   common: {
     copied: (text: string) => `Clock copiado: ${text}`,
+    textCopied: (text: string) => `Copiado: ${text}`,
+    pathCopied: "Caminho do histórico copiado.",
+    emptyField: "Campo vazio — nada pra copiar.",
     copyFailed: "Falhou ao copiar.",
     fillFirst: "Preencha os campos primeiro.",
     nothingToSave: "Nada calculado para salvar.",
@@ -79,6 +89,7 @@ const ptBR = {
       saida: { label: "Só a saída", desc: "máquinas + clock → produção total" },
       entrada: { label: "Só a entrada", desc: "máquinas + clock → consumo total" },
       history: { label: "Histórico", desc: "reabrir e copiar cálculos salvos" },
+      config: { label: "Configurações", desc: "esteiras, canos e transporte ativo" },
       sair: { label: "Sair", desc: "fecha o programa" },
     },
     tipPre: "Cada ferramenta é direta ao ponto. Em qualquer cálculo:",
@@ -173,9 +184,27 @@ const ptBR = {
     },
   },
 
+  config: {
+    title: "Configurações",
+    subtitle: "Esteiras e canos usados nos limites de entrada/saída.",
+    welcome:
+      "Bem-vindo! Escolha suas esteiras e canos. Dá pra mudar depois nas Configurações.",
+    beltsPanel: "Esteiras",
+    pipesPanel: "Canos",
+    activeMode: "Transporte ativo",
+    belt: "Esteira",
+    pipe: "Cano",
+    mk: (mk: number) => `Mk.${mk}`,
+    rate: (rate: number) => `${rate} /min`,
+    toggleHint: "M troca esteira/cano",
+    saved: "Configuração salva.",
+  },
+
   history: {
     title: "Histórico",
-    help: "Enter reabre o cálculo · C copia o clock · d apaga · Ctrl+L limpa tudo",
+    help:
+      "Enter reabre · C clock · Y resumo · P caminho do arquivo · d apaga · Ctrl+L limpa",
+    pathHint: "clique ou P copia o caminho",
     emptyPanel: "Vazio",
     emptyText: "Nenhum cálculo salvo ainda. Use Ctrl+S nas telas de cálculo.",
     count: (n: number) => `${n} cálculo(s)`,
@@ -190,6 +219,8 @@ const ptBR = {
     confirm: "salva",
     cancel: "cancela",
     emptyUses: (name: string) => `(vazio usa “${name}”)`,
+    copyName: "Ctrl+Y copia o nome",
+    nameCopied: (text: string) => `Nome copiado: ${text}`,
   },
 };
 
@@ -213,7 +244,11 @@ const enUS: Messages = {
     field: "field",
     next: "next",
     save: "save",
-    copy: "copy",
+    copy: "copy clock",
+    copyField: "copy field",
+    copyLine: "copy result",
+    copyPath: "copy path",
+    copySummary: "copy summary",
     clearBack: "clear/back",
     navigate: "navigate",
     open: "open",
@@ -223,10 +258,16 @@ const enUS: Messages = {
     back: "back",
     arrowsMouse: "↑↓/mouse",
     enterClick: "Enter/click",
+    list: "list",
+    select: "select",
+    toggle: "belt/pipe",
   },
 
   common: {
     copied: (text) => `Clock copied: ${text}`,
+    textCopied: (text) => `Copied: ${text}`,
+    pathCopied: "History file path copied.",
+    emptyField: "Empty field — nothing to copy.",
     copyFailed: "Copy failed.",
     fillFirst: "Fill in the fields first.",
     nothingToSave: "Nothing calculated to save.",
@@ -248,6 +289,7 @@ const enUS: Messages = {
       saida: { label: "Output only", desc: "machines + clock → total output" },
       entrada: { label: "Input only", desc: "machines + clock → total consumption" },
       history: { label: "History", desc: "reopen and copy saved calculations" },
+      config: { label: "Settings", desc: "belts, pipes and active transport" },
       sair: { label: "Quit", desc: "closes the program" },
     },
     tipPre: "Each tool is to the point. In any calculation:",
@@ -342,9 +384,27 @@ const enUS: Messages = {
     },
   },
 
+  config: {
+    title: "Settings",
+    subtitle: "Belts and pipes used by the input/output limits.",
+    welcome:
+      "Welcome! Pick your belts and pipes. You can change this later in Settings.",
+    beltsPanel: "Belts",
+    pipesPanel: "Pipes",
+    activeMode: "Active transport",
+    belt: "Belt",
+    pipe: "Pipe",
+    mk: (mk) => `Mk.${mk}`,
+    rate: (rate) => `${rate} /min`,
+    toggleHint: "M toggles belt/pipe",
+    saved: "Settings saved.",
+  },
+
   history: {
     title: "History",
-    help: "Enter reopens · C copies the clock · d deletes · Ctrl+L clears all",
+    help:
+      "Enter reopens · C clock · Y summary · P file path · d deletes · Ctrl+L clears all",
+    pathHint: "click or P copies the path",
     emptyPanel: "Empty",
     emptyText: "No saved calculations yet. Use Ctrl+S on the calc screens.",
     count: (n) => `${n} calc(s)`,
@@ -359,6 +419,8 @@ const enUS: Messages = {
     confirm: "save",
     cancel: "cancel",
     emptyUses: (name) => `(empty uses “${name}”)`,
+    copyName: "Ctrl+Y copies the name",
+    nameCopied: (text) => `Name copied: ${text}`,
   },
 };
 

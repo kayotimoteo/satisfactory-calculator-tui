@@ -7,6 +7,7 @@ import { SavePrompt } from "../components/SavePrompt";
 import { useField } from "../ui/useField";
 import { useFieldNav } from "../ui/useFieldNav";
 import { copyClock } from "../lib/clipboard";
+import { copyWithStatus } from "../lib/copyStatus";
 import { saveEntry } from "../lib/storage";
 import { clockColor, theme } from "../ui/theme";
 import {
@@ -69,6 +70,28 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
     });
   };
 
+  const copyField = (i: number) => {
+    const vals = [
+      refs.current.machines.value,
+      refs.current.output100.value,
+      refs.current.target.value,
+    ];
+    const v = vals[i]?.trim() ?? "";
+    if (!v) return setStatus({ text: t.common.emptyField, tone: "warn" });
+    setStatus(copyWithStatus(v, t.common.textCopied, t.common.copyFailed));
+  };
+
+  const copyLine = () => {
+    const d = snap.current;
+    if (!d) return setStatus({ text: t.common.fillFirst, tone: "warn" });
+    const r = d.resultado;
+    const c = refs.current;
+    const line = r.possivelNoLimite
+      ? t.clock.summary(c.machines.value, c.target.value, fmt(r.clockNecessario, 4))
+      : t.clock.unfeasible;
+    setStatus(copyWithStatus(line, t.common.textCopied, t.common.copyFailed));
+  };
+
   const openSave = () => {
     if (!snap.current) return setStatus({ text: t.common.nothingToSave, tone: "warn" });
     setSaving(true);
@@ -114,7 +137,7 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
 
   const { index, setIndex } = useFieldNav(
     3,
-    { onBack, onCopy: copy, onSave: openSave, onReset: reset, isDirty },
+    { onBack, onCopy: copy, onCopyField: copyField, onCopyLine: copyLine, onSave: openSave, onReset: reset, isDirty },
     saving,
   );
   useEffect(() => setStatus(null), [setStatus]);
@@ -134,6 +157,7 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
           defaultName={t.clock.defaultName(target.value || "?")}
           onConfirm={confirmSave}
           onCancel={() => setSaving(false)}
+          setStatus={setStatus}
         />
       ) : null}
 
