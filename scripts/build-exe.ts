@@ -15,8 +15,10 @@
 //
 // Usage:  bun run build:exe   (or: bun run scripts/build-exe.ts [--no-install])
 import { mkdirSync } from "fs";
-import { homedir } from "os";
+import { homedir, platform } from "os";
 import { join, resolve } from "path";
+import { rcedit } from "rcedit";
+import pkg from "../package.json";
 
 const root = resolve(import.meta.dir, "..");
 const entry = resolve(root, "src/exe.tsx");
@@ -53,6 +55,39 @@ const seconds = ((performance.now() - t0) / 1000).toFixed(1);
 const mb = (Bun.file(outfile).size / 1024 / 1024).toFixed(1);
 console.log(`\nDone in ${seconds}s -> ${outfile} (${mb} MB)`);
 console.log("It's standalone: the native dll is embedded, you can copy just the .exe.");
+
+// Rewrite the PE version info. `bun build --compile` produces an .exe that
+// inherits bun's own version resource, so its OriginalFilename/InternalName stay
+// "bun.exe" — which is the name VirusTotal then shows for the scanned binary.
+// rcedit overwrites those fields so the scan (and Windows' file properties)
+// report this app instead. rcedit ships a Windows-only helper exe, so this is a
+// no-op (with a warning) on other platforms; the released build runs on Windows.
+const fileVersion = `${pkg.version.split("-")[0]}.0`; // x.y.z -> x.y.z.0 (4-part)
+if (platform() === "win32") {
+  console.log("\nStamping version info (rcedit)...");
+  try {
+    await rcedit(outfile, {
+      "file-version": fileVersion,
+      "product-version": pkg.version,
+      "version-string": {
+        CompanyName: pkg.author,
+        FileDescription: pkg.description,
+        ProductName: "Satisfactory Calculator TUI",
+        OriginalFilename: "sfcalc.exe",
+        // The standard version-info key is "InternalName"; rcedit's types call it
+        // "InternalFilename", which writes a non-standard string Windows ignores
+        // (leaving the inherited "bun"). Pass the real key via a cast.
+        InternalName: "sfcalc",
+        LegalCopyright: `${pkg.author} - ${pkg.license}`,
+      } as Parameters<typeof rcedit>[1]["version-string"],
+    });
+    console.log("Version info stamped (OriginalFilename -> sfcalc.exe).");
+  } catch (err) {
+    console.warn("Warning: failed to stamp version info:", err);
+  }
+} else {
+  console.warn("\nSkipping version-info stamp (rcedit is Windows-only).");
+}
 
 // Installs as `sfcalc` in a folder on the PATH, unless skipping was requested.
 if (skipInstall) {
