@@ -18,6 +18,7 @@ import {
   parseInteiroPositivo,
   parseNumero,
 } from "../lib/satisfactory";
+import { useT } from "../i18n";
 import type { ScreenProps } from "./types";
 
 // Generic screen for the two direct calculations:
@@ -30,9 +31,10 @@ export function RateScreen({
   onBack,
   setStatus,
 }: ScreenProps & { mode: "saida" | "entrada" }) {
+  const t = useT();
   const isOutput = mode === "saida";
-  const title = isOutput ? "Só a saída" : "Só a entrada";
-  const rateLabel = isOutput ? "Saída por máquina a 100%" : "Entrada por máquina a 100%";
+  const title = isOutput ? t.rate.titleOutput : t.rate.titleInput;
+  const rateLabel = isOutput ? t.rate.rateLabelOutput : t.rate.rateLabelInput;
 
   // Initial form values (the "default" the reset goes back to).
   const initial = {
@@ -65,16 +67,16 @@ export function RateScreen({
 
   const copy = () => {
     const d = snap.current;
-    if (!d) return setStatus({ text: "Preencha os campos primeiro.", tone: "warn" });
+    if (!d) return setStatus({ text: t.common.fillFirst, tone: "warn" });
     const { text, ok } = copyClock(d.clock);
     setStatus({
-      text: ok ? `Clock copiado: ${text}` : "Falhou ao copiar.",
+      text: ok ? t.common.copied(text) : t.common.copyFailed,
       tone: ok ? "ok" : "err",
     });
   };
 
   const openSave = () => {
-    if (!snap.current) return setStatus({ text: "Nada calculado para salvar.", tone: "warn" });
+    if (!snap.current) return setStatus({ text: t.common.nothingToSave, tone: "warn" });
     setSaving(true);
   };
 
@@ -82,20 +84,19 @@ export function RateScreen({
     const d = snap.current;
     if (!d) return setSaving(false);
     const c = refs.current;
-    const word = isOutput ? "saída" : "entrada";
     saveEntry({
-      nome: name || `${title} ${c.machines.value} máq @${c.clock.value}%`,
+      nome: name || t.rate.defaultName(title, c.machines.value),
       modo: mode,
       campos: {
         maquinas: c.machines.value,
         taxa100: c.rate100.value,
         clock: c.clock.value,
       },
-      resumo: `${c.machines.value} máq @${c.clock.value}% → ${fmtFlex(d.calc.total)}/min de ${word}`,
+      resumo: t.rate.summary(c.machines.value, c.clock.value, fmtFlex(d.calc.total), isOutput),
       clock: d.clock,
     });
     setSaving(false);
-    setStatus({ text: "Salvo no histórico.", tone: "ok" });
+    setStatus({ text: t.common.saved, tone: "ok" });
   };
 
   const reset = () => {
@@ -124,7 +125,7 @@ export function RateScreen({
   useEffect(() => setStatus(null), [setStatus]);
 
   const calc = data?.calc;
-  const word = isOutput ? "Saída" : "Entrada";
+  const word = isOutput ? t.rate.wordOutput : t.rate.wordInput;
   const focus = saving ? -1 : index;
   // A mouse click on a field moves the keyboard focus to it (syncs the yellow
   // border with where OpenTUI already placed the <input>'s native focus).
@@ -136,7 +137,7 @@ export function RateScreen({
     <box flexDirection="column" gap={1} flexGrow={1}>
       {saving ? (
         <SavePrompt
-          defaultName={`${title} ${machines.value || "?"} máq`}
+          defaultName={t.rate.defaultName(title, machines.value || "?")}
           onConfirm={confirmSave}
           onCancel={() => setSaving(false)}
         />
@@ -148,37 +149,35 @@ export function RateScreen({
         style={{ contentOptions: { flexDirection: "column", gap: 1 } }}
       >
         <text fg={theme.accent} attributes={TextAttributes.BOLD}>{title}</text>
-        <text fg={theme.muted}>
-          N máquinas num dado clock → quanto {isOutput ? "produz" : "consome"} no total.
-        </text>
+        <text fg={theme.muted}>{t.rate.subtitle(isOutput)}</text>
 
-        <Panel title="Dados">
-          <Field key={`maquinas-${formKey}`} label="Máquinas" value={machines.value} focused={focus === 0} onFocusRequest={focusField(0)} onInput={machines.set} placeholder="ex: 8" numeric="integer" />
-          <Field key={`taxa100-${formKey}`} label={rateLabel} value={rate100.value} focused={focus === 1} onFocusRequest={focusField(1)} onInput={rate100.set} placeholder="/min" hint="itens/min" numeric="decimal" />
-          <Field key={`clock-${formKey}`} label="Clock" value={clock.value} focused={focus === 2} onFocusRequest={focusField(2)} onInput={clock.set} placeholder="%" hint="% (padrão 250)" numeric="decimal" />
+        <Panel title={t.common.dataPanel}>
+          <Field key={`maquinas-${formKey}`} label={t.common.machines} value={machines.value} focused={focus === 0} onFocusRequest={focusField(0)} onInput={machines.set} placeholder={t.rate.machinesPlaceholder} numeric="integer" />
+          <Field key={`taxa100-${formKey}`} label={rateLabel} value={rate100.value} focused={focus === 1} onFocusRequest={focusField(1)} onInput={rate100.set} placeholder="/min" hint={t.common.itemsPerMin} numeric="decimal" />
+          <Field key={`clock-${formKey}`} label={t.common.clock} value={clock.value} focused={focus === 2} onFocusRequest={focusField(2)} onInput={clock.set} placeholder="%" hint={t.common.clockHint(CLOCK_PADRAO)} numeric="decimal" />
         </Panel>
 
         {calc ? (
-          <Panel title="Resultado" borderColor={theme.ok}>
+          <Panel title={t.common.resultPanel} borderColor={theme.ok}>
             <box flexDirection="row" justifyContent="space-between">
-              <text fg={theme.textDim}>{word} total</text>
+              <text fg={theme.textDim}>{t.rate.totalOf(word)}</text>
               <text fg={theme.accent} attributes={TextAttributes.BOLD}>
                 {fmtFlex(calc.total)} /min
               </text>
             </box>
-            <Row label={`${word} por máquina`} value={`${fmtFlex(calc.porMaquina)} /min`} />
-            <Row label="Máquinas" value={`${calc.maquinas}`} />
-            <Row label="Clock" value={`${fmt(calc.clock, 4)}%`} color={clockColor(calc.tipoClock)} />
+            <Row label={t.rate.perMachine(word)} value={`${fmtFlex(calc.porMaquina)} /min`} />
+            <Row label={t.common.machines} value={`${calc.maquinas}`} />
+            <Row label={t.common.clock} value={`${fmt(calc.clock, 4)}%`} color={clockColor(calc.tipoClock)} />
             {data?.info.ajustado ? (
               <Row
-                label="Ajuste Satisfactory"
+                label={t.common.satisfactoryAdjust}
                 value={`${data.info.fracao} (${fmtFlex(data.info.valorNormalizado)})`}
                 color={theme.warn}
               />
             ) : null}
           </Panel>
         ) : (
-          <text fg={theme.muted}>Preencha máquinas, taxa e clock para ver o total.</text>
+          <text fg={theme.muted}>{t.rate.emptyHint}</text>
         )}
       </scrollbox>
     </box>

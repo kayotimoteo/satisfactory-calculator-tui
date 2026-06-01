@@ -18,11 +18,13 @@ import {
   parseInteiroPositivo,
   parseNumero,
 } from "../lib/satisfactory";
+import { useT } from "../i18n";
 import type { ScreenProps } from "./types";
 
 // JUST THE CLOCK: how many machines I have, how much each produces at 100% and
 // what the target is -> which clock I need. The same calc the script already did.
 export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
+  const t = useT();
   // Initial form values (the "default" the reset goes back to).
   const initial = {
     machines: seed?.maquinas ?? "",
@@ -56,22 +58,19 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
 
   const copy = () => {
     const d = snap.current;
-    if (!d) return setStatus({ text: "Preencha os campos primeiro.", tone: "warn" });
+    if (!d) return setStatus({ text: t.common.fillFirst, tone: "warn" });
     if (!d.resultado.possivelNoLimite) {
-      return setStatus({
-        text: `Clock passa de ${CLOCK_MAX}% — não copiei.`,
-        tone: "err",
-      });
+      return setStatus({ text: t.clock.overLimit(CLOCK_MAX), tone: "err" });
     }
     const { text, ok } = copyClock(d.resultado.clockNecessario);
     setStatus({
-      text: ok ? `Clock copiado: ${text}` : "Falhou ao copiar.",
+      text: ok ? t.common.copied(text) : t.common.copyFailed,
       tone: ok ? "ok" : "err",
     });
   };
 
   const openSave = () => {
-    if (!snap.current) return setStatus({ text: "Nada calculado para salvar.", tone: "warn" });
+    if (!snap.current) return setStatus({ text: t.common.nothingToSave, tone: "warn" });
     setSaving(true);
   };
 
@@ -81,18 +80,18 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
     const c = refs.current;
     const clock = d.resultado.clockNecessario;
     saveEntry({
-      nome: name || `Clock p/ ${c.target.value}/min`,
+      nome: name || t.clock.defaultName(c.target.value),
       modo: "clock",
       campos: {
         maquinas: c.machines.value,
         saida100: c.output100.value,
         meta: c.target.value,
       },
-      resumo: `${c.machines.value} máq • meta ${c.target.value}/min → ${fmt(clock, 2)}%`,
+      resumo: t.clock.summary(c.machines.value, c.target.value, fmt(clock, 2)),
       clock: d.resultado.possivelNoLimite ? clock : null,
     });
     setSaving(false);
-    setStatus({ text: "Salvo no histórico.", tone: "ok" });
+    setStatus({ text: t.common.saved, tone: "ok" });
   };
 
   const reset = () => {
@@ -132,7 +131,7 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
     <box flexDirection="column" gap={1} flexGrow={1}>
       {saving ? (
         <SavePrompt
-          defaultName={`Clock p/ ${target.value || "?"}/min`}
+          defaultName={t.clock.defaultName(target.value || "?")}
           onConfirm={confirmSave}
           onCancel={() => setSaving(false)}
         />
@@ -144,53 +143,51 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
         style={{ contentOptions: { flexDirection: "column", gap: 1 } }}
       >
         <text fg={theme.accent} attributes={TextAttributes.BOLD}>
-          Clock para meta
+          {t.clock.title}
         </text>
-        <text fg={theme.muted}>
-          Tenho N máquinas e quero saber o clock pra bater uma produção.
-        </text>
+        <text fg={theme.muted}>{t.clock.subtitle}</text>
 
-        <Panel title="Dados">
-          <Field key={`maquinas-${formKey}`} label="Máquinas" value={machines.value} focused={focus === 0} onFocusRequest={focusField(0)} onInput={machines.set} placeholder="ex: 4" numeric="integer" />
-          <Field key={`saida100-${formKey}`} label="Saída por máquina a 100%" value={output100.value} focused={focus === 1} onFocusRequest={focusField(1)} onInput={output100.set} placeholder="/min" hint="itens/min" numeric="decimal" />
-          <Field key={`meta-${formKey}`} label="Meta total de produção" value={target.value} focused={focus === 2} onFocusRequest={focusField(2)} onInput={target.set} placeholder="/min" hint="itens/min" numeric="decimal" />
+        <Panel title={t.common.dataPanel}>
+          <Field key={`maquinas-${formKey}`} label={t.common.machines} value={machines.value} focused={focus === 0} onFocusRequest={focusField(0)} onInput={machines.set} placeholder={t.clock.machinesPlaceholder} numeric="integer" />
+          <Field key={`saida100-${formKey}`} label={t.clock.fieldOutput100} value={output100.value} focused={focus === 1} onFocusRequest={focusField(1)} onInput={output100.set} placeholder="/min" hint={t.common.itemsPerMin} numeric="decimal" />
+          <Field key={`meta-${formKey}`} label={t.clock.fieldTarget} value={target.value} focused={focus === 2} onFocusRequest={focusField(2)} onInput={target.set} placeholder="/min" hint={t.common.itemsPerMin} numeric="decimal" />
         </Panel>
 
         {r ? (
           <Panel
-            title="Resultado"
+            title={t.common.resultPanel}
             borderColor={r.possivelNoLimite ? theme.ok : theme.err}
           >
             <box flexDirection="row" justifyContent="space-between">
-              <text fg={theme.textDim}>Clock necessário</text>
+              <text fg={theme.textDim}>{t.clock.clockNeeded}</text>
               <text fg={clockColor(r.tipoClock)} attributes={TextAttributes.BOLD}>
                 {fmt(r.clockNecessario, 4)}%  ({r.tipoClock})
               </text>
             </box>
-            <Row label="Meta por máquina" value={`${fmtFlex(r.metaPorMaquina)} /min`} />
-            <Row label="Produção em 100%" value={`${fmtFlex(r.producaoTotalEm100)} /min`} />
+            <Row label={t.clock.targetPerMachine} value={`${fmtFlex(r.metaPorMaquina)} /min`} />
+            <Row label={t.clock.prodAt100} value={`${fmtFlex(r.producaoTotalEm100)} /min`} />
             {data?.info.ajustado ? (
               <Row
-                label="Ajuste Satisfactory"
+                label={t.common.satisfactoryAdjust}
                 value={`${data.info.fracao} (${fmtFlex(data.info.valorNormalizado)})`}
                 color={theme.warn}
               />
             ) : null}
             {r.possivelNoLimite ? (
-              <Row label="Status" value={`VÁLIDO até ${CLOCK_MAX}%`} color={theme.ok} strong />
+              <Row label={t.clock.status} value={t.clock.validUpTo(CLOCK_MAX)} color={theme.ok} strong />
             ) : (
               <box flexDirection="column">
-                <Row label="Status" value="INVIÁVEL" color={theme.err} strong />
-                <Row label={`Excesso sobre ${CLOCK_MAX}%`} value={`${fmt(r.excessoDeClock, 2)}%`} color={theme.err} />
-                <Row label={`Produção máx em ${CLOCK_MAX}%`} value={`${fmtFlex(r.producaoMaximaNoLimite)} /min`} />
-                <Row label="Faltaria" value={`${fmtFlex(r.faltariaNoMax)} /min`} color={theme.warn} />
-                <Row label={`Máquinas mín. em ${CLOCK_MAX}%`} value={`${r.maquinasMinimasNoMax}`} />
-                <Row label="Adicionar máquinas" value={`+${r.maquinasAdicionaisNecessarias}`} color={theme.warn} />
+                <Row label={t.clock.status} value={t.clock.unfeasible} color={theme.err} strong />
+                <Row label={t.clock.excessOver(CLOCK_MAX)} value={`${fmt(r.excessoDeClock, 2)}%`} color={theme.err} />
+                <Row label={t.clock.maxProdAt(CLOCK_MAX)} value={`${fmtFlex(r.producaoMaximaNoLimite)} /min`} />
+                <Row label={t.clock.missing} value={`${fmtFlex(r.faltariaNoMax)} /min`} color={theme.warn} />
+                <Row label={t.clock.minMachinesAt(CLOCK_MAX)} value={`${r.maquinasMinimasNoMax}`} />
+                <Row label={t.clock.addMachines} value={`+${r.maquinasAdicionaisNecessarias}`} color={theme.warn} />
               </box>
             )}
           </Panel>
         ) : (
-          <text fg={theme.muted}>Preencha máquinas, saída e meta para ver o clock.</text>
+          <text fg={theme.muted}>{t.clock.emptyHint}</text>
         )}
       </scrollbox>
     </box>

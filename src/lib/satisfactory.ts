@@ -28,6 +28,43 @@ export const TOLERANCIA_NORMALIZACAO = 0.0005;
 export type TipoClock = "UNDERCLOCK" | "NORMAL" | "OVERCLOCK";
 
 // ---------------------------------------------------------------------------
+// Typed layout errors
+// ---------------------------------------------------------------------------
+//
+// The core stays locale-free: instead of throwing a human (Portuguese) string,
+// `calcularLayoutPorEntrada` throws a `LayoutError` carrying a stable `code`
+// plus any numbers needed to phrase it. The UI (`LayoutScreen`) turns the code
+// into a translated message via the i18n `layout.errors` table.
+
+export type LayoutErrorCode =
+  | "targetNonPositive"
+  | "inputNonPositive"
+  | "rowsNonPositive"
+  | "clockOutOfRange"
+  | "outputNonPositive"
+  | "rowLimitExceeded"
+  | "inputPerMachineInvalid";
+
+export interface LayoutErrorData {
+  code: LayoutErrorCode;
+  /** clock ceiling, for `clockOutOfRange` */
+  max?: number;
+  /** items/min each row would receive, for `rowLimitExceeded` */
+  perRow?: number;
+  /** per-row item limit, for `rowLimitExceeded` */
+  limit?: number;
+}
+
+export class LayoutError extends Error {
+  readonly data: LayoutErrorData;
+  constructor(data: LayoutErrorData) {
+    super(data.code);
+    this.name = "LayoutError";
+    this.data = data;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Formatting (pt-BR, comma decimal)
 // ---------------------------------------------------------------------------
 
@@ -322,28 +359,29 @@ export function calcularLayoutPorEntrada(
   saida100: number | null = null,
 ): ResultadoLayout {
   if (metaEntradaTotal <= 0) {
-    throw new Error("A entrada total desejada deve ser maior que zero.");
+    throw new LayoutError({ code: "targetNonPositive" });
   }
   if (entrada100 <= 0) {
-    throw new Error("A entrada por máquina a 100% deve ser maior que zero.");
+    throw new LayoutError({ code: "inputNonPositive" });
   }
   if (fileiras <= 0) {
-    throw new Error("A quantidade de fileiras deve ser maior que zero.");
+    throw new LayoutError({ code: "rowsNonPositive" });
   }
   if (clockEscolhido <= 0 || clockEscolhido > CLOCK_MAX) {
-    throw new Error(`O clock deve ser maior que 0 e menor ou igual a ${CLOCK_MAX}.`);
+    throw new LayoutError({ code: "clockOutOfRange", max: CLOCK_MAX });
   }
   if (saida100 !== null && saida100 <= 0) {
-    throw new Error("A saída por máquina a 100% deve ser maior que zero.");
+    throw new LayoutError({ code: "outputNonPositive" });
   }
 
   const entradaAlvoPorFileira = metaEntradaTotal / fileiras;
 
   if (entradaAlvoPorFileira > LIMITE_FILEIRA + EPSILON) {
-    throw new Error(
-      `Cada fileira precisaria receber ${fmtFlex(entradaAlvoPorFileira)} itens/min, ` +
-        `mas o limite é ${LIMITE_FILEIRA} itens/min por fileira. Aumente o número de fileiras.`,
-    );
+    throw new LayoutError({
+      code: "rowLimitExceeded",
+      perRow: entradaAlvoPorFileira,
+      limit: LIMITE_FILEIRA,
+    });
   }
 
   const entradaPorMaquinaNoClockEscolhido = capacidadePorMaquina(
@@ -352,7 +390,7 @@ export function calcularLayoutPorEntrada(
   );
 
   if (entradaPorMaquinaNoClockEscolhido <= 0) {
-    throw new Error("A entrada por máquina no clock informado é inválida.");
+    throw new LayoutError({ code: "inputPerMachineInvalid" });
   }
 
   const maquinasPorFileiraExatas =

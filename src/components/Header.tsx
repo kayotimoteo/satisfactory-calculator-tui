@@ -1,7 +1,10 @@
 import { TextAttributes } from "@opentui/core";
 import { theme } from "../ui/theme";
+import { useT } from "../i18n";
+import { CLOCK_PADRAO } from "../lib/satisfactory";
 
 export function Header({ subtitle }: { subtitle?: string }) {
+  const t = useT();
   return (
     <box
       flexDirection="row"
@@ -14,9 +17,9 @@ export function Header({ subtitle }: { subtitle?: string }) {
         <text fg={theme.accent} attributes={TextAttributes.BOLD}>
           SATISFACTORY
         </text>
-        <text fg={theme.textDim}>Calculadora de Fábrica</text>
+        <text fg={theme.textDim}>{t.header.tagline}</text>
       </box>
-      <text fg={theme.muted}>{subtitle ?? "clock padrão 250%"}</text>
+      <text fg={theme.muted}>{subtitle ?? t.header.defaultSubtitle(CLOCK_PADRAO)}</text>
     </box>
   );
 }

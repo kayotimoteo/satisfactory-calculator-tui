@@ -9,6 +9,7 @@ import { LayoutScreen } from "./screens/LayoutScreen";
 import { HistoryScreen } from "./screens/HistoryScreen";
 import type { HistoryEntry } from "./lib/storage";
 import { theme } from "./ui/theme";
+import { useT } from "./i18n";
 
 // `origin` remembers where the calculation screen was opened from, so Esc goes
 // back to the right place (History when reopened from there; otherwise the main
@@ -22,28 +23,30 @@ type Route =
   | { name: "layout"; seed?: Record<string, string>; origin?: Origin }
   | { name: "history" };
 
-const HINTS_CALC: Hint[] = [
-  { key: "Tab", label: "campo" },
-  { key: "Enter", label: "próximo" },
-  { key: "Ctrl+S", label: "salvar" },
-  { key: "C", label: "copiar" },
-  { key: "Esc", label: "limpar/voltar" },
-];
-const HINTS_MENU: Hint[] = [
-  { key: "↑↓/mouse", label: "navegar" },
-  { key: "Enter/clique", label: "abrir" },
-  { key: "Ctrl+C", label: "sair" },
-];
-const HINTS_HIST: Hint[] = [
-  { key: "↑↓", label: "navegar" },
-  { key: "Enter", label: "reabrir" },
-  { key: "C", label: "copiar" },
-  { key: "d", label: "apagar" },
-  { key: "Esc", label: "voltar" },
-];
-
 export function App() {
   const renderer = useRenderer();
+  const t = useT();
+
+  const HINTS_CALC: Hint[] = [
+    { key: "Tab", label: t.hints.field },
+    { key: "Enter", label: t.hints.next },
+    { key: "Ctrl+S", label: t.hints.save },
+    { key: "C", label: t.hints.copy },
+    { key: "Esc", label: t.hints.clearBack },
+  ];
+  const HINTS_MENU: Hint[] = [
+    { key: t.hints.arrowsMouse, label: t.hints.navigate },
+    { key: t.hints.enterClick, label: t.hints.open },
+    { key: "Ctrl+C", label: t.hints.quit },
+  ];
+  const HINTS_HIST: Hint[] = [
+    { key: "↑↓", label: t.hints.navigate },
+    { key: "Enter", label: t.hints.reopen },
+    { key: "C", label: t.hints.copy },
+    { key: "d", label: t.hints.delete },
+    { key: "Esc", label: t.hints.back },
+  ];
+
   const [route, setRoute] = useState<Route>({ name: "menu" });
   const [status, setStatusState] = useState<StatusMsg | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -93,6 +96,13 @@ export function App() {
 
   const seedKey = "seed" in route && route.seed ? JSON.stringify(route.seed) : "";
 
+  const subtitle =
+    route.name === "menu"
+      ? undefined
+      : route.name === "history"
+        ? t.history.title
+        : t.header.subtitle(t.modes[route.name]);
+
   return (
     <box
       flexDirection="column"
@@ -101,7 +111,7 @@ export function App() {
       gap={1}
       backgroundColor={theme.bg}
     >
-      <Header subtitle={route.name === "menu" ? undefined : `modo: ${route.name}`} />
+      <Header subtitle={subtitle} />
 
       <box flexGrow={1} flexDirection="column" paddingLeft={1} paddingRight={1}>
         {route.name === "menu" && <MenuScreen onSelect={onMenuSelect} />}

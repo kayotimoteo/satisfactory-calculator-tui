@@ -12,14 +12,8 @@ import {
 } from "../lib/storage";
 import { theme } from "../ui/theme";
 import { fmt } from "../lib/satisfactory";
+import { useT } from "../i18n";
 import type { StatusMsg } from "../components/Footer";
-
-const MODE_LABELS: Record<HistoryEntry["modo"], string> = {
-  clock: "clock",
-  saida: "saída",
-  entrada: "entrada",
-  layout: "layout",
-};
 
 export function HistoryScreen({
   onBack,
@@ -30,6 +24,7 @@ export function HistoryScreen({
   setStatus: (s: StatusMsg | null) => void;
   onOpen: (entry: HistoryEntry) => void;
 }) {
+  const t = useT();
   const [list, setList] = useState<HistoryEntry[]>(() => loadHistory());
   const [active, setActive] = useState(0);
   const idxRef = useRef(0);
@@ -64,11 +59,11 @@ export function HistoryScreen({
     }
     if (!key.ctrl && !key.meta && key.name === "c") {
       if (!current || current.clock === null) {
-        return setStatus({ text: "Essa entrada não tem clock.", tone: "warn" });
+        return setStatus({ text: t.history.noClock, tone: "warn" });
       }
       const { text, ok } = copyClock(current.clock);
       return setStatus({
-        text: ok ? `Clock copiado: ${text}` : "Falhou ao copiar.",
+        text: ok ? t.common.copied(text) : t.common.copyFailed,
         tone: ok ? "ok" : "err",
       });
     }
@@ -78,31 +73,27 @@ export function HistoryScreen({
       idxRef.current = Math.max(0, Math.min(idxRef.current, updated.length - 1));
       setActive(idxRef.current);
       setList(updated);
-      return setStatus({ text: "Entrada removida.", tone: "ok" });
+      return setStatus({ text: t.history.removed, tone: "ok" });
     }
     if (key.ctrl && key.name === "l") {
       setList(clearHistory());
       idxRef.current = 0;
       setActive(0);
-      return setStatus({ text: "Histórico limpo.", tone: "ok" });
+      return setStatus({ text: t.history.cleared, tone: "ok" });
     }
   });
 
   return (
     <box flexDirection="column" gap={1} flexGrow={1}>
-      <text fg={theme.accent} attributes={TextAttributes.BOLD}>Histórico</text>
-      <text fg={theme.muted}>
-        Enter reabre o cálculo · C copia o clock · d apaga · Ctrl+L limpa tudo
-      </text>
+      <text fg={theme.accent} attributes={TextAttributes.BOLD}>{t.history.title}</text>
+      <text fg={theme.muted}>{t.history.help}</text>
 
       {list.length === 0 ? (
-        <Panel title="Vazio">
-          <text fg={theme.muted}>
-            Nenhum cálculo salvo ainda. Use Ctrl+S nas telas de cálculo.
-          </text>
+        <Panel title={t.history.emptyPanel}>
+          <text fg={theme.muted}>{t.history.emptyText}</text>
         </Panel>
       ) : (
-        <Panel title={`${list.length} cálculo(s)`} flexGrow={1}>
+        <Panel title={t.history.count(list.length)} flexGrow={1}>
           <box flexDirection="column">
             {list.map((e, idx) => {
               const on = idx === active;
@@ -124,7 +115,7 @@ export function HistoryScreen({
                       {(on ? "› " : "  ") + e.nome}
                     </text>
                     <text fg={theme.muted}>
-                      [{MODE_LABELS[e.modo]}]
+                      [{t.modes[e.modo]}]
                       {e.clock !== null ? `  ${fmt(e.clock, 2)}%` : ""}
                     </text>
                   </box>

@@ -3,6 +3,7 @@ import { useKeyboard } from "@opentui/react";
 import { Field } from "./Field";
 import { Panel } from "./Panel";
 import { theme } from "../ui/theme";
+import { useT } from "../i18n";
 
 export interface SavePromptProps {
   /** name used if the field is left empty (shown as a hint) */
@@ -20,6 +21,7 @@ export interface SavePromptProps {
  * so there's no key conflict.
  */
 export function SavePrompt({ defaultName, onConfirm, onCancel }: SavePromptProps) {
+  const t = useT();
   const [name, setName] = useState("");
   const nameRef = useRef("");
   nameRef.current = name;
@@ -30,9 +32,9 @@ export function SavePrompt({ defaultName, onConfirm, onCancel }: SavePromptProps
   });
 
   return (
-    <Panel title="Salvar no histórico" borderColor={theme.accent}>
+    <Panel title={t.save.title} borderColor={theme.accent}>
       <Field
-        label="Nome"
+        label={t.save.nameLabel}
         value={name}
         focused
         onInput={setName}
@@ -40,11 +42,11 @@ export function SavePrompt({ defaultName, onConfirm, onCancel }: SavePromptProps
         width={30}
       />
       <text fg={theme.muted}>
-        <span fg={theme.accent}>Enter</span> salva
+        <span fg={theme.accent}>Enter</span> {t.save.confirm}
         {"  ·  "}
-        <span fg={theme.accent}>Esc</span> cancela
+        <span fg={theme.accent}>Esc</span> {t.save.cancel}
         {"   "}
-        (vazio usa “{defaultName}”)
+        {t.save.emptyUses(defaultName)}
       </text>
     </Panel>
   );

@@ -11,6 +11,7 @@ import { saveEntry } from "../lib/storage";
 import { theme } from "../ui/theme";
 import {
   CLOCK_PADRAO,
+  LayoutError,
   calcularLayoutPorEntrada,
   fileirasMinimasRecomendadas,
   fmt,
@@ -19,10 +20,13 @@ import {
   parseInteiroPositivo,
   parseNumero,
 } from "../lib/satisfactory";
+import type { LayoutErrorData } from "../lib/satisfactory";
+import { useT } from "../i18n";
 import type { ScreenProps } from "./types";
 
 // FULL LAYOUT from the desired input (the "powerful" mode).
 export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
+  const t = useT();
   // Initial form values (the "default" the reset goes back to).
   const initial = {
     targetInput: seed?.metaEntrada ?? "",
@@ -59,9 +63,33 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
       const base = calcularLayoutPorEntrada(target, infoInput.valorNormalizado, rws, clk, outNorm);
       return { ok: true as const, base, infoInput, infoOutput };
     } catch (e) {
-      return { ok: false as const, error: (e as Error).message };
+      // The calc core throws locale-free LayoutError codes; the message is built
+      // here, in the active language (see `errorText`).
+      if (e instanceof LayoutError) return { ok: false as const, error: e.data };
+      throw e;
     }
   }, [targetInput.value, input100.value, output100.value, clock.value, rows.value]);
+
+  // Turns a typed layout error into a translated, formatted message.
+  const errorText = (err: LayoutErrorData): string => {
+    const E = t.layout.errors;
+    switch (err.code) {
+      case "clockOutOfRange":
+        return E.clockOutOfRange(err.max ?? CLOCK_PADRAO);
+      case "rowLimitExceeded":
+        return E.rowLimitExceeded(fmtFlex(err.perRow ?? 0), err.limit ?? 0);
+      case "targetNonPositive":
+        return E.targetNonPositive;
+      case "inputNonPositive":
+        return E.inputNonPositive;
+      case "rowsNonPositive":
+        return E.rowsNonPositive;
+      case "outputNonPositive":
+        return E.outputNonPositive;
+      case "inputPerMachineInvalid":
+        return E.inputPerMachineInvalid;
+    }
+  };
 
   // Minimum recommended number of rows, updated as the target is typed.
   const minRows = useMemo(() => {
@@ -106,17 +134,17 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
 
   const copy = () => {
     const d = snap.current;
-    if (!d || !d.ok) return setStatus({ text: "Sem resultado válido pra copiar.", tone: "warn" });
+    if (!d || !d.ok) return setStatus({ text: t.layout.noCopy, tone: "warn" });
     const { text, ok } = copyClock(d.base.clockExato);
     setStatus({
-      text: ok ? `Clock exato copiado: ${text}` : "Falhou ao copiar.",
+      text: ok ? t.layout.copyOk(text) : t.common.copyFailed,
       tone: ok ? "ok" : "err",
     });
   };
 
   const openSave = () => {
     const d = snap.current;
-    if (!d || !d.ok) return setStatus({ text: "Sem resultado válido pra salvar.", tone: "warn" });
+    if (!d || !d.ok) return setStatus({ text: t.layout.noSave, tone: "warn" });
     setSaving(true);
   };
 
@@ -125,7 +153,7 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
     if (!d || !d.ok) return setSaving(false);
     const c = refs.current;
     saveEntry({
-      nome: name || `Layout ${c.targetInput.value}/min`,
+      nome: name || t.layout.defaultName(c.targetInput.value),
       modo: "layout",
       campos: {
         metaEntrada: c.targetInput.value,
@@ -134,11 +162,15 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
         clock: c.clock.value,
         fileiras: c.rows.value,
       },
-      resumo: `${d.base.totalMaquinas} máq • ${c.rows.value} fileira(s) • clock ${fmt(d.base.clockExato, 2)}%`,
+      resumo: t.layout.summary(
+        `${d.base.totalMaquinas}`,
+        c.rows.value,
+        fmt(d.base.clockExato, 2),
+      ),
       clock: d.base.clockExato,
     });
     setSaving(false);
-    setStatus({ text: "Salvo no histórico.", tone: "ok" });
+    setStatus({ text: t.common.saved, tone: "ok" });
   };
 
   const reset = () => {
@@ -196,7 +228,7 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
     <box flexDirection="column" gap={1} flexGrow={1}>
       {saving ? (
         <SavePrompt
-          defaultName={`Layout ${targetInput.value || "?"}/min`}
+          defaultName={t.layout.defaultName(targetInput.value || "?")}
           onConfirm={confirmSave}
           onCancel={() => setSaving(false)}
         />
@@ -207,25 +239,23 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
         flexGrow={1}
         style={{ contentOptions: { flexDirection: "column", gap: 1 } }}
       >
-        <text fg={theme.accent} attributes={TextAttributes.BOLD}>Layout por entrada</text>
-        <text fg={theme.muted}>
-          Quero alimentar X/min em N fileiras → máquinas e clock exato.
-        </text>
+        <text fg={theme.accent} attributes={TextAttributes.BOLD}>{t.layout.title}</text>
+        <text fg={theme.muted}>{t.layout.subtitle}</text>
 
-        <Panel title="Dados">
-          <Field key={`metaEntrada-${formKey}`} label="Entrada total" value={targetInput.value} focused={focus === 0} onFocusRequest={focusField(0)} onInput={targetInput.set} placeholder="/min" hint="itens/min" numeric="decimal" />
-          <Field key={`entrada100-${formKey}`} label="Entrada por máquina a 100%" value={input100.value} focused={focus === 1} onFocusRequest={focusField(1)} onInput={input100.set} placeholder="/min" hint="itens/min" numeric="decimal" />
-          <Field key={`saida100-${formKey}`} label="Saída por máquina a 100%" value={output100.value} focused={focus === 2} onFocusRequest={focusField(2)} onInput={output100.set} placeholder="opcional" hint="opcional" numeric="decimal" />
-          <Field key={`clock-${formKey}`} label="Clock" value={clock.value} focused={focus === 3} onFocusRequest={focusField(3)} onInput={clock.set} placeholder="%" hint="% (padrão 250)" numeric="decimal" />
+        <Panel title={t.common.dataPanel}>
+          <Field key={`metaEntrada-${formKey}`} label={t.layout.fieldTargetInput} value={targetInput.value} focused={focus === 0} onFocusRequest={focusField(0)} onInput={targetInput.set} placeholder="/min" hint={t.common.itemsPerMin} numeric="decimal" />
+          <Field key={`entrada100-${formKey}`} label={t.layout.fieldInput100} value={input100.value} focused={focus === 1} onFocusRequest={focusField(1)} onInput={input100.set} placeholder="/min" hint={t.common.itemsPerMin} numeric="decimal" />
+          <Field key={`saida100-${formKey}`} label={t.layout.fieldOutput100} value={output100.value} focused={focus === 2} onFocusRequest={focusField(2)} onInput={output100.set} placeholder={t.layout.optional} hint={t.layout.optional} numeric="decimal" />
+          <Field key={`clock-${formKey}`} label={t.common.clock} value={clock.value} focused={focus === 3} onFocusRequest={focusField(3)} onInput={clock.set} placeholder="%" hint={t.common.clockHint(CLOCK_PADRAO)} numeric="decimal" />
           <Field
             key={`fileiras-${rowsKey}-${formKey}`}
-            label="Fileiras"
+            label={t.layout.fieldRows}
             value={rows.value}
             focused={focus === 4}
             onFocusRequest={focusField(4)}
             onInput={rows.set}
-            placeholder="ex: 2"
-            hint={minRows !== null ? `mín. ${minRows}` : undefined}
+            placeholder={t.layout.rowsPlaceholder}
+            hint={minRows !== null ? t.layout.minRows(minRows) : undefined}
             hintColor={rowsInsufficient ? theme.warn : theme.ok}
             numeric="integer"
           />
@@ -233,27 +263,27 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
 
         {!data ? (
           <text fg={theme.muted}>
-            Preencha entrada total, entrada/100%, clock e fileiras.
-            {minRows !== null ? ` Recomendo ao menos ${minRows} fileira(s).` : ""}
+            {t.layout.emptyHint}
+            {minRows !== null ? t.layout.emptyHintRows(minRows) : ""}
           </text>
         ) : !data.ok ? (
-          <Panel title="Não deu" borderColor={theme.err}>
-            <text fg={theme.err}>{data.error}</text>
+          <Panel title={t.layout.errorPanel} borderColor={theme.err}>
+            <text fg={theme.err}>{errorText(data.error)}</text>
           </Panel>
         ) : (
-          <Panel title="Layout mínimo" borderColor={theme.ok}>
+          <Panel title={t.layout.resultPanel} borderColor={theme.ok}>
             <box flexDirection="row" justifyContent="space-between">
-              <text fg={theme.textDim}>Clock exato</text>
+              <text fg={theme.textDim}>{t.layout.clockExact}</text>
               <text fg={theme.accent} attributes={TextAttributes.BOLD}>{fmt(data.base.clockExato, 4)}%</text>
             </box>
-            <Row label="Total de máquinas" value={`${data.base.totalMaquinas}`} strong />
-            <Row label="Máquinas por fileira" value={`${data.base.maquinasPorFileiraMinimas}`} />
-            <Row label="Entrada por fileira (clock exato)" value={`${fmtFlex(data.base.entradaPorFileiraNoClockExato)} /min`} strong />
-            <Row label="Entrada por fileira (clock teto)" value={`${fmtFlex(data.base.entradaPorFileiraNoClockEscolhido)} /min`} color={theme.muted} />
-            <Row label="Entrada total no clock teto" value={`${fmtFlex(data.base.entradaTotalNoClockEscolhido)} /min`} color={theme.muted} />
-            <Row label="Excesso no clock teto" value={`${fmtFlex(data.base.excessoEntradaNoClockEscolhido)} /min`} color={theme.warn} />
+            <Row label={t.layout.totalMachines} value={`${data.base.totalMaquinas}`} strong />
+            <Row label={t.layout.machinesPerRow} value={`${data.base.maquinasPorFileiraMinimas}`} />
+            <Row label={t.layout.inputPerRowExact} value={`${fmtFlex(data.base.entradaPorFileiraNoClockExato)} /min`} strong />
+            <Row label={t.layout.inputPerRowCeiling} value={`${fmtFlex(data.base.entradaPorFileiraNoClockEscolhido)} /min`} color={theme.muted} />
+            <Row label={t.layout.inputTotalCeiling} value={`${fmtFlex(data.base.entradaTotalNoClockEscolhido)} /min`} color={theme.muted} />
+            <Row label={t.layout.excessCeiling} value={`${fmtFlex(data.base.excessoEntradaNoClockEscolhido)} /min`} color={theme.warn} />
             {data.base.saidaTotalNoClockExato !== undefined ? (
-              <Row label="Saída total (clock exato)" value={`${fmtFlex(data.base.saidaTotalNoClockExato)} /min`} color={theme.over} />
+              <Row label={t.layout.outputTotalExact} value={`${fmtFlex(data.base.saidaTotalNoClockExato)} /min`} color={theme.over} />
             ) : null}
           </Panel>
         )}
