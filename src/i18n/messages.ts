@@ -13,6 +13,10 @@
 
 export type Locale = "pt-BR" | "en-US";
 
+// User's language preference as stored in config. "system" defers to OS
+// detection (see `detect.ts`); the explicit locales pin the language.
+export type LanguagePref = "system" | Locale;
+
 // Widens the literal types inferred from `ptBR` ("Máquinas" -> string) while
 // preserving structure and function signatures, so other locales aren't forced
 // to repeat the Portuguese string literals.
@@ -191,6 +195,11 @@ const ptBR = {
       "Bem-vindo! Escolha suas esteiras e canos. Dá pra mudar depois nas Configurações.",
     beltsPanel: "Esteiras",
     pipesPanel: "Canos",
+    languagePanel: "Idioma",
+    langSystem: "Padrão do sistema",
+    langPtBR: "Português do Brasil",
+    langEnUS: "English",
+    langSystemHint: (lang: string) => `→ ${lang}`,
     activeMode: "Transporte ativo",
     belt: "Esteira",
     pipe: "Cano",
@@ -198,6 +207,7 @@ const ptBR = {
     rate: (rate: number) => `${rate} /min`,
     toggleHint: "M troca esteira/cano",
     saved: "Configuração salva.",
+    languageSaved: "Idioma alterado.",
   },
 
   history: {
@@ -391,6 +401,11 @@ const enUS: Messages = {
       "Welcome! Pick your belts and pipes. You can change this later in Settings.",
     beltsPanel: "Belts",
     pipesPanel: "Pipes",
+    languagePanel: "Language",
+    langSystem: "System default",
+    langPtBR: "Português do Brasil",
+    langEnUS: "English",
+    langSystemHint: (lang) => `→ ${lang}`,
     activeMode: "Active transport",
     belt: "Belt",
     pipe: "Pipe",
@@ -398,6 +413,7 @@ const enUS: Messages = {
     rate: (rate) => `${rate} /min`,
     toggleHint: "M toggles belt/pipe",
     saved: "Settings saved.",
+    languageSaved: "Language changed.",
   },
 
   history: {

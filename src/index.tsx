@@ -3,7 +3,7 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
 import { I18nProvider } from "./i18n";
-import { ConfigProvider } from "./ui/ConfigContext";
+import { ConfigProvider, useConfig } from "./ui/ConfigContext";
 
 // Default window size (columns x rows). Windows Terminal understands the ANSI
 // sequence "CSI 8 ; rows ; columns t" and resizes the window on open. Terminals
@@ -20,10 +20,20 @@ const renderer = await createCliRenderer({
 	enableMouseMovement: true,
 });
 
-createRoot(renderer).render(
-	<I18nProvider>
-		<ConfigProvider>
+// ConfigProvider must be the outer one: the active language lives in config, and
+// I18nProvider derives the locale from it so changing it on the settings screen
+// re-renders the whole UI live.
+function Root() {
+	const { config } = useConfig();
+	return (
+		<I18nProvider language={config.language}>
 			<App />
-		</ConfigProvider>
-	</I18nProvider>,
+		</I18nProvider>
+	);
+}
+
+createRoot(renderer).render(
+	<ConfigProvider>
+		<Root />
+	</ConfigProvider>,
 );

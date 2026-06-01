@@ -7,6 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
+import type { LanguagePref } from "../i18n/messages";
 
 export type TransportType = "belt" | "pipe";
 
@@ -40,13 +41,17 @@ export interface AppConfig {
   pipeMk: number;
   /** which transport the max-throughput checks use */
   transport: TransportType;
+  /** UI language: "system" defers to OS detection, else a pinned locale */
+  language: LanguagePref;
 }
 
-// Default: Mk.1 for both, belt active — the user tunes it from the config screen.
+// Default: Mk.1 for both, belt active, language following the OS — the user
+// tunes it all from the config screen.
 export const DEFAULT_CONFIG: AppConfig = {
   beltMk: 1,
   pipeMk: 1,
   transport: "belt",
+  language: "system",
 };
 
 const DIR = join(homedir(), ".satisfactory-calculator-tui");
@@ -64,6 +69,10 @@ function hasTier(tiers: readonly TransportTier[], mk: unknown): mk is number {
   return typeof mk === "number" && tiers.some((t) => t.mk === mk);
 }
 
+function isLanguage(value: unknown): value is LanguagePref {
+  return value === "system" || value === "pt-BR" || value === "en-US";
+}
+
 /** Loads the config, falling back to defaults for anything missing/invalid. */
 export function loadConfig(): AppConfig {
   try {
@@ -73,6 +82,7 @@ export function loadConfig(): AppConfig {
       beltMk: hasTier(BELT_TIERS, raw.beltMk) ? raw.beltMk : DEFAULT_CONFIG.beltMk,
       pipeMk: hasTier(PIPE_TIERS, raw.pipeMk) ? raw.pipeMk : DEFAULT_CONFIG.pipeMk,
       transport: raw.transport === "pipe" ? "pipe" : "belt",
+      language: isLanguage(raw.language) ? raw.language : DEFAULT_CONFIG.language,
     };
   } catch {
     return { ...DEFAULT_CONFIG };

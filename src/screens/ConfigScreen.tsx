@@ -5,18 +5,34 @@ import { Panel } from "../components/Panel";
 import { theme } from "../ui/theme";
 import { useConfig } from "../ui/ConfigContext";
 import { BELT_TIERS, PIPE_TIERS, CONFIG_PATH, type TransportTier } from "../lib/config";
-import { useT } from "../i18n";
+import { useT, detectLocale, type LanguagePref } from "../i18n";
 import type { StatusMsg } from "../components/Footer";
 
 // Settings screen. Opens automatically on the first run, then lives behind the
-// "Settings" menu item. Two tier lists (belts / pipes). The active-transport
-// toggle is NOT here — that lives in the calc (LayoutScreen) on `M` — so this
-// screen stays simple: just pick which Mk you use.
+// "Settings" menu item. Three lists: belts, pipes and the UI language. The
+// active-transport toggle is NOT here — that lives in the calc (LayoutScreen) on
+// `M` — so this screen stays simple: just pick what you use.
 //
 // We render the lists by hand (instead of OpenTUI's SelectRenderable) because we
 // want TWO distinct visual states the renderable can't show at once: a SELECTED
 // row (orange, the committed choice) and a HOVERED/cursor row (subtle). Hover and
 // the keyboard cursor share one "cursor" position; clicking/Enter commits it.
+
+// Section indices, named so the list math reads clearly.
+const BELTS = 0;
+const PIPES = 1;
+const LANG = 2;
+const SECTIONS = 3;
+
+// A single row to render: its committed (orange) state, label and optional
+// secondary text.
+interface ListRow {
+  key: string | number;
+  label: string;
+  sub?: string;
+  committed: boolean;
+}
+
 export function ConfigScreen({
   onDone,
   setStatus,
@@ -29,22 +45,35 @@ export function ConfigScreen({
   const t = useT();
   const { config, update } = useConfig();
 
-  // Which list has keyboard focus: 0 = belts, 1 = pipes.
-  const [section, setSection] = useState(0);
-  // Cursor (hover / keyboard) position per list — starts on the committed tier.
+  // Language options, in display order. "system" shows which locale the OS
+  // currently resolves to as a hint.
+  const resolvedName = detectLocale() === "pt-BR" ? t.config.langPtBR : t.config.langEnUS;
+  const LANG_OPTIONS: { value: LanguagePref; label: string; sub?: string }[] = [
+    { value: "system", label: t.config.langSystem, sub: t.config.langSystemHint(resolvedName) },
+    { value: "pt-BR", label: t.config.langPtBR },
+    { value: "en-US", label: t.config.langEnUS },
+  ];
+  const langIndex = LANG_OPTIONS.findIndex((o) => o.value === config.language);
+
+  // Which list has keyboard focus.
+  const [section, setSection] = useState(BELTS);
+  // Cursor (hover / keyboard) position per list — starts on the committed choice.
   const [cursorBelt, setCursorBelt] = useState(config.beltMk - 1);
   const [cursorPipe, setCursorPipe] = useState(config.pipeMk - 1);
+  const [cursorLang, setCursorLang] = useState(langIndex < 0 ? 0 : langIndex);
+
+  const counts = [BELT_TIERS.length, PIPE_TIERS.length, LANG_OPTIONS.length];
 
   // Refs so the once-bound keyboard handler reads live values (not stale ones).
   const sectionRef = useRef(section);
   sectionRef.current = section;
-  const cursorRef = useRef([cursorBelt, cursorPipe]);
-  cursorRef.current = [cursorBelt, cursorPipe];
+  const cursorRef = useRef([cursorBelt, cursorPipe, cursorLang]);
+  cursorRef.current = [cursorBelt, cursorPipe, cursorLang];
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 
   const setCursor = (list: number, i: number) =>
-    (list === 0 ? setCursorBelt : setCursorPipe)(i);
+    (list === BELTS ? setCursorBelt : list === PIPES ? setCursorPipe : setCursorLang)(i);
 
   // Persist once on mount so the first run leaves a config file behind — without
   // it, `configExists()` would keep routing here on every launch.
@@ -60,20 +89,31 @@ export function ConfigScreen({
     setCursor(list, i);
   };
 
-  // Commit the row as the chosen tier (click / Enter) — turns it orange.
+  // Commit the row as the chosen value (click / Enter) — turns it orange.
   const commit = (list: number, i: number) => {
     setSection(list);
     setCursor(list, i);
-    const tier = (list === 0 ? BELT_TIERS : PIPE_TIERS)[i];
-    if (tier) update(list === 0 ? { beltMk: tier.mk } : { pipeMk: tier.mk });
+    if (list === BELTS) {
+      const tier = BELT_TIERS[i];
+      if (tier) update({ beltMk: tier.mk });
+    } else if (list === PIPES) {
+      const tier = PIPE_TIERS[i];
+      if (tier) update({ pipeMk: tier.mk });
+    } else {
+      const opt = LANG_OPTIONS[i];
+      if (opt && opt.value !== config.language) {
+        update({ language: opt.value });
+        setStatus({ tone: "ok", text: t.config.languageSaved });
+      }
+    }
   };
 
   useKeyboard((key) => {
     if (key.name === "escape") return onDoneRef.current();
-    if (key.name === "tab") return setSection((s) => (s + 1) % 2);
+    if (key.name === "tab") return setSection((s) => (s + 1) % SECTIONS);
 
     const list = sectionRef.current;
-    const count = (list === 0 ? BELT_TIERS : PIPE_TIERS).length;
+    const count = counts[list]!;
     const cur = cursorRef.current[list]!;
 
     if (key.name === "up" || key.name === "k") {
@@ -84,29 +124,24 @@ export function ConfigScreen({
     }
     if (key.name === "return") {
       commit(list, cur);
-      // Enter confirms and moves on to the other list.
-      return setSection((s) => (s + 1) % 2);
+      // Enter confirms and moves on to the next list.
+      return setSection((s) => (s + 1) % SECTIONS);
     }
   });
 
-  // Renders one tier list. `committedMk` is the saved choice (orange); `cursor`
-  // is the hover/keyboard position (subtle, only while this list is focused).
-  const renderList = (
-    list: number,
-    tiers: readonly TransportTier[],
-    committedMk: number,
-    cursor: number,
-  ) => (
+  // Renders one list. `cursor` is the hover/keyboard position (subtle, only while
+  // this list is focused); committed rows are orange.
+  const renderList = (list: number, rows: ListRow[], cursor: number) => (
     <box flexDirection="column">
-      {tiers.map((tier, i) => {
-        const committed = tier.mk === committedMk;
+      {rows.map((row, i) => {
+        const committed = row.committed;
         const onCursor = section === list && i === cursor;
         const bg = committed ? theme.accent : onCursor ? theme.panel : undefined;
         const marker = committed ? "▶" : onCursor ? "›" : " ";
         const markerFg = committed ? theme.bg : onCursor ? theme.focus : theme.muted;
         return (
           <box
-            key={tier.mk}
+            key={row.key}
             flexDirection="row"
             gap={1}
             paddingLeft={1}
@@ -118,13 +153,30 @@ export function ConfigScreen({
             }}
           >
             <text fg={markerFg}>{marker}</text>
-            <text fg={committed ? theme.bg : theme.text}>{t.config.mk(tier.mk).padEnd(6)}</text>
-            <text fg={committed ? theme.bg : theme.muted}>{t.config.rate(tier.rate)}</text>
+            <text fg={committed ? theme.bg : theme.text}>{row.label}</text>
+            {row.sub ? (
+              <text fg={committed ? theme.bg : theme.muted}>{row.sub}</text>
+            ) : null}
           </box>
         );
       })}
     </box>
   );
+
+  const tierRows = (tiers: readonly TransportTier[], committedMk: number): ListRow[] =>
+    tiers.map((tier) => ({
+      key: tier.mk,
+      label: t.config.mk(tier.mk).padEnd(6),
+      sub: t.config.rate(tier.rate),
+      committed: tier.mk === committedMk,
+    }));
+
+  const langRows: ListRow[] = LANG_OPTIONS.map((o) => ({
+    key: o.value,
+    label: o.label,
+    sub: o.sub,
+    committed: config.language === o.value,
+  }));
 
   return (
     <box flexDirection="column" gap={1} flexGrow={1}>
@@ -133,16 +185,23 @@ export function ConfigScreen({
 
       <Panel
         title={t.config.beltsPanel}
-        borderColor={section === 0 ? theme.focus : theme.panelBorder}
+        borderColor={section === BELTS ? theme.focus : theme.panelBorder}
       >
-        {renderList(0, BELT_TIERS, config.beltMk, cursorBelt)}
+        {renderList(BELTS, tierRows(BELT_TIERS, config.beltMk), cursorBelt)}
       </Panel>
 
       <Panel
         title={t.config.pipesPanel}
-        borderColor={section === 1 ? theme.focus : theme.panelBorder}
+        borderColor={section === PIPES ? theme.focus : theme.panelBorder}
       >
-        {renderList(1, PIPE_TIERS, config.pipeMk, cursorPipe)}
+        {renderList(PIPES, tierRows(PIPE_TIERS, config.pipeMk), cursorPipe)}
+      </Panel>
+
+      <Panel
+        title={t.config.languagePanel}
+        borderColor={section === LANG ? theme.focus : theme.panelBorder}
+      >
+        {renderList(LANG, langRows, cursorLang)}
       </Panel>
 
       <text fg={theme.muted}>{CONFIG_PATH}</text>

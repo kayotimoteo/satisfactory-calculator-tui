@@ -1,31 +1,36 @@
 // React context that exposes the active locale and its message table.
 //
-// The locale is detected once from the OS at startup (see `detect.ts`). A
-// `setLocale` is provided so a future in-app language toggle can flip it live;
-// nothing changes it today.
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { messages, type Locale, type Messages } from "./messages";
+// The locale is derived from the user's language preference (stored in config):
+// "system" (or unset) defers to OS detection (see `detect.ts`), an explicit
+// locale pins the language. Because the preference is passed in as a prop, the
+// UI re-renders live when the language is changed on the settings screen.
+import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { messages, type Locale, type LanguagePref, type Messages } from "./messages";
 import { detectLocale } from "./detect";
 
 interface I18nValue {
   locale: Locale;
   t: Messages;
-  setLocale: (locale: Locale) => void;
 }
 
 const I18nContext = createContext<I18nValue | null>(null);
 
+/** Resolves a stored preference to a concrete locale. */
+export function resolveLocale(language: LanguagePref | undefined): Locale {
+  return language && language !== "system" ? language : detectLocale();
+}
+
 export function I18nProvider({
   children,
-  locale: initial,
+  language,
 }: {
   children: ReactNode;
-  /** force a locale (tests/overrides); defaults to OS detection */
-  locale?: Locale;
+  /** user's language preference; "system"/undefined → OS detection */
+  language?: LanguagePref;
 }) {
-  const [locale, setLocale] = useState<Locale>(() => initial ?? detectLocale());
+  const locale = useMemo(() => resolveLocale(language), [language]);
   const value = useMemo<I18nValue>(
-    () => ({ locale, t: messages[locale], setLocale }),
+    () => ({ locale, t: messages[locale] }),
     [locale],
   );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
