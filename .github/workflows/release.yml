@@ -94,6 +94,6 @@ jobs:
             "- [$name]($url)"
           }
           $current = gh release view $env:TAG --json body --jq .body
-          $section = "`n`n## VirusTotal`n`nBinários compilados com Bun costumam gerar falso-positivo de AV. Resultados da análise:`n`n" + ($lines -join "`n")
+          $section = "`n`n## VirusTotal`n`nBinários compilados com Bun costumam gerar falso-positivo de AV.`nResultados da análise:`n`n" + ($lines -join "`n")
           Set-Content -Path vt-notes.md -Value ($current + $section) -Encoding utf8
           gh release edit $env:TAG --notes-file vt-notes.md
