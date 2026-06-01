@@ -116,14 +116,16 @@ No histórico: `Enter` reabre o cálculo, `Ctrl+Y` copia o clock daquela entrada
 
 ## Onde os dados ficam salvos
 
-O histórico é um único JSON em:
+Tudo fica no diretório `~/.satisfactory-calculator-tui/`, em dois JSONs:
 
 ```
-~/.satisfactory-calculator-tui/history.json
+~/.satisfactory-calculator-tui/history.json   # histórico/cálculos salvos
+~/.satisfactory-calculator-tui/config.json    # belts/pipes, transporte ativo, idioma
 ```
 
-(no Windows, `C:\Users\<você>\.satisfactory-calculator-tui\history.json`). O
-caminho exato aparece no rodapé da tela de Histórico.
+(no Windows, `C:\Users\<você>\.satisfactory-calculator-tui\`). O caminho do
+histórico aparece no rodapé da tela de Histórico, e o do `config.json` na tela
+de Configurações.
 
 ## Estrutura
 
@@ -135,6 +137,7 @@ src/
     satisfactory.ts  # núcleo de cálculo puro
     clipboard.ts     # cópia pro clipboard (clip/pbcopy/xclip/wl-copy)
     storage.ts       # histórico/salvos em JSON
+    config.ts        # preferências (belts/pipes, transporte, idioma) em JSON
   ui/                # tema + hooks (useField, useFieldNav)
   components/        # Header, Footer, Panel, Field, Row, Menu
   screens/           # MenuScreen, ClockScreen, RateScreen, LayoutScreen, HistoryScreen
