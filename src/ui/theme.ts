@@ -1,9 +1,9 @@
-// Paleta inspirada no laranja/cinza do Satisfactory.
+// Palette inspired by the orange/gray of Satisfactory.
 export const theme = {
   bg: "#11141a",
   panel: "#1a1f29",
   panelBorder: "#2c333f",
-  accent: "#ff9f1c", // laranja Satisfactory
+  accent: "#ff9f1c", // Satisfactory orange
   accentDim: "#b5701a",
   focus: "#ffd166",
   text: "#e6e9ef",
@@ -17,8 +17,8 @@ export const theme = {
   normal: "#48c78e",
 } as const;
 
-export function corDoClock(tipo: "UNDERCLOCK" | "NORMAL" | "OVERCLOCK"): string {
-  if (tipo === "UNDERCLOCK") return theme.under;
-  if (tipo === "OVERCLOCK") return theme.over;
+export function clockColor(type: "UNDERCLOCK" | "NORMAL" | "OVERCLOCK"): string {
+  if (type === "UNDERCLOCK") return theme.under;
+  if (type === "OVERCLOCK") return theme.over;
   return theme.normal;
 }

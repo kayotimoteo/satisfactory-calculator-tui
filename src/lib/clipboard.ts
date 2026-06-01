@@ -1,15 +1,16 @@
-// Cópia para o clipboard. No Windows usamos o clip.exe (igual ao script
-// original); em outros sistemas tentamos pbcopy (macOS) ou xclip/wl-copy.
+// Clipboard copy. On Windows we use clip.exe (same as the original script);
+// on other systems we try pbcopy (macOS) or xclip/wl-copy.
 import { spawnSync } from "child_process";
 import { fmtClockClipboard } from "./satisfactory";
 
-function tentarComando(cmd: string, args: string[], texto: string): boolean {
+function tryCommand(cmd: string, args: string[], text: string): boolean {
   try {
-    const res = spawnSync(cmd, args, { input: texto });
-    // spawnSync NÃO lança quando o binário não existe (ENOENT): devolve
-    // { status: null, error: <Error> }. Tratar status null como sucesso fazia
-    // um clip/wl-copy ausente reportar "copiado" sem nada chegar ao clipboard
-    // (e abortava o fallback pro xclip). Só é sucesso quando saiu com código 0.
+    const res = spawnSync(cmd, args, { input: text });
+    // spawnSync does NOT throw when the binary is missing (ENOENT): it returns
+    // { status: null, error: <Error> }. Treating a null status as success made
+    // a missing clip/wl-copy report "copied" with nothing reaching the
+    // clipboard (and aborted the xclip fallback). It's only a success when it
+    // exited with code 0.
     if (res.error) return false;
     return res.status === 0;
   } catch {
@@ -17,26 +18,26 @@ function tentarComando(cmd: string, args: string[], texto: string): boolean {
   }
 }
 
-/** Copia um texto qualquer para o clipboard. Retorna true se conseguiu. */
-export function copiarTexto(texto: string): boolean {
+/** Copies any text to the clipboard. Returns true on success. */
+export function copyText(text: string): boolean {
   if (process.platform === "win32") {
-    return tentarComando("clip", [], texto);
+    return tryCommand("clip", [], text);
   }
   if (process.platform === "darwin") {
-    return tentarComando("pbcopy", [], texto);
+    return tryCommand("pbcopy", [], text);
   }
-  // Linux: tenta wl-copy (Wayland) e depois xclip (X11).
+  // Linux: try wl-copy (Wayland) and then xclip (X11).
   return (
-    tentarComando("wl-copy", [], texto) ||
-    tentarComando("xclip", ["-selection", "clipboard"], texto)
+    tryCommand("wl-copy", [], text) ||
+    tryCommand("xclip", ["-selection", "clipboard"], text)
   );
 }
 
 /**
- * Copia o valor do clock já formatado do jeito que o jogo espera
- * (vírgula decimal, sem zeros à toa). Retorna o texto copiado.
+ * Copies the clock value already formatted the way the game expects
+ * (comma decimal, no stray zeros). Returns the copied text.
  */
-export function copiarClock(valor: number): { texto: string; ok: boolean } {
-  const texto = fmtClockClipboard(valor);
-  return { texto, ok: copiarTexto(texto) };
+export function copyClock(valor: number): { text: string; ok: boolean } {
+  const text = fmtClockClipboard(valor);
+  return { text, ok: copyText(text) };
 }

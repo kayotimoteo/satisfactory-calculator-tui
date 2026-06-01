@@ -4,14 +4,15 @@ import { Header } from "./components/Header";
 import { Footer, type Hint, type StatusMsg } from "./components/Footer";
 import { MenuScreen } from "./screens/MenuScreen";
 import { ClockScreen } from "./screens/ClockScreen";
-import { TaxaScreen } from "./screens/TaxaScreen";
+import { RateScreen } from "./screens/RateScreen";
 import { LayoutScreen } from "./screens/LayoutScreen";
 import { HistoryScreen } from "./screens/HistoryScreen";
-import type { EntradaHistorico } from "./lib/storage";
+import type { HistoryEntry } from "./lib/storage";
 import { theme } from "./ui/theme";
 
-// `origin` lembra de onde a tela de cálculo foi aberta, pra o Esc voltar pro
-// lugar certo (Histórico quando reaberta de lá; senão o menu principal).
+// `origin` remembers where the calculation screen was opened from, so Esc goes
+// back to the right place (History when reopened from there; otherwise the main
+// menu).
 type Origin = "menu" | "history";
 type Route =
   | { name: "menu" }
@@ -26,8 +27,7 @@ const HINTS_CALC: Hint[] = [
   { key: "Enter", label: "próximo" },
   { key: "Ctrl+S", label: "salvar" },
   { key: "C", label: "copiar" },
-  { key: "Ctrl+Backspace", label: "limpar" },
-  { key: "Esc", label: "voltar" },
+  { key: "Esc", label: "limpar/voltar" },
 ];
 const HINTS_MENU: Hint[] = [
   { key: "↑↓/mouse", label: "navegar" },
@@ -73,13 +73,14 @@ export function App() {
     setRoute({ name: id, origin: "menu" } as Route);
   };
 
-  const onOpenHistorico = (e: EntradaHistorico) => {
+  const onOpenHistory = (e: HistoryEntry) => {
     setStatus(null);
     setRoute({ name: e.modo, seed: e.campos, origin: "history" } as Route);
   };
 
-  // Volta da tela de cálculo pra origem (Histórico ou menu). Capturado no
-  // mount de cada tela, então enxerga a `route` correta daquele cálculo.
+  // Goes from the calculation screen back to its origin (History or menu).
+  // Captured on each screen's mount, so it sees the correct `route` for that
+  // calculation.
   const onBackCalc =
     "origin" in route && route.origin === "history" ? goHistory : goMenu;
 
@@ -108,16 +109,16 @@ export function App() {
           <ClockScreen key={`clock${seedKey}`} seed={route.seed} onBack={onBackCalc} setStatus={setStatus} />
         )}
         {route.name === "saida" && (
-          <TaxaScreen key={`saida${seedKey}`} modo="saida" seed={route.seed} onBack={onBackCalc} setStatus={setStatus} />
+          <RateScreen key={`saida${seedKey}`} mode="saida" seed={route.seed} onBack={onBackCalc} setStatus={setStatus} />
         )}
         {route.name === "entrada" && (
-          <TaxaScreen key={`entrada${seedKey}`} modo="entrada" seed={route.seed} onBack={onBackCalc} setStatus={setStatus} />
+          <RateScreen key={`entrada${seedKey}`} mode="entrada" seed={route.seed} onBack={onBackCalc} setStatus={setStatus} />
         )}
         {route.name === "layout" && (
           <LayoutScreen key={`layout${seedKey}`} seed={route.seed} onBack={onBackCalc} setStatus={setStatus} />
         )}
         {route.name === "history" && (
-          <HistoryScreen onBack={goMenu} setStatus={setStatus} onOpen={onOpenHistorico} />
+          <HistoryScreen onBack={goMenu} setStatus={setStatus} onOpen={onOpenHistory} />
         )}
       </box>
 

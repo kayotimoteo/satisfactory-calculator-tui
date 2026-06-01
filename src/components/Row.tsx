@@ -4,11 +4,11 @@ export interface RowProps {
   label: string;
   value: string;
   color?: string;
-  /** destaque a linha inteira (ex.: resultado principal) */
+  /** highlight the whole row (e.g. the main result) */
   strong?: boolean;
 }
 
-/** Linha "rótulo .......... valor" para blocos de resultado. */
+/** "label .......... value" row for result blocks. */
 export function Row({ label, value, color, strong }: RowProps) {
   return (
     <box flexDirection="row" justifyContent="space-between">

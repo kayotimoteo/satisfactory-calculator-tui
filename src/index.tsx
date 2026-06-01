@@ -3,13 +3,13 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
 
-// Tamanho padrão da janela (colunas x linhas). O Windows Terminal entende a
-// sequência ANSI "CSI 8 ; linhas ; colunas t" e redimensiona a janela ao abrir.
-// Em terminais que não suportam (ex.: conhost antigo) a sequência é ignorada.
-const COLUNAS_PADRAO = 100;
-const LINHAS_PADRAO = 50;
+// Default window size (columns x rows). Windows Terminal understands the ANSI
+// sequence "CSI 8 ; rows ; columns t" and resizes the window on open. Terminals
+// that don't support it (e.g. old conhost) just ignore the sequence.
+const DEFAULT_COLUMNS = 100;
+const DEFAULT_ROWS = 50;
 if (process.stdout.isTTY) {
-	process.stdout.write(`\x1b[8;${LINHAS_PADRAO};${COLUNAS_PADRAO}t`);
+	process.stdout.write(`\x1b[8;${DEFAULT_ROWS};${DEFAULT_COLUMNS}t`);
 }
 
 const renderer = await createCliRenderer({

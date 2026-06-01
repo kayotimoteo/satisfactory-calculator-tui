@@ -1,7 +1,7 @@
 import type { StatusMsg } from "../components/Footer";
 
 export interface ScreenProps {
-  /** valores pré-preenchidos ao reabrir um cálculo do histórico */
+  /** values prefilled when reopening a calculation from history */
   seed?: Record<string, string>;
   onBack: () => void;
   setStatus: (s: StatusMsg | null) => void;

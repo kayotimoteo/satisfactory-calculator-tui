@@ -1,19 +1,22 @@
-// Núcleo de cálculo da calculadora de fábrica do Satisfactory.
+// Calculation core of the Satisfactory factory calculator.
 //
-// Tudo aqui é puro (sem I/O, sem UI): recebe números, devolve números.
-// Portado e reorganizado a partir do satisfactory3.js original, agora com
-// funções bem mais "quebradas" para cada pergunta que costumo fazer no jogo:
-//   - só o clock (clock necessário para uma meta)
-//   - só a saída (quanto sai com N máquinas num clock)
-//   - só a entrada (quanto entra com N máquinas num clock)
-//   - layout completo a partir da entrada desejada
+// Everything here is pure (no I/O, no UI): numbers in, numbers out.
+// Ported and reorganized from the original satisfactory3.js, now broken into
+// much smaller functions, one per question I usually ask in the game:
+//   - just the clock (clock needed to hit a target)
+//   - just the output (how much N machines produce at a clock)
+//   - just the input (how much N machines consume at a clock)
+//   - full layout from the desired input
+//
+// Note: the calculation functions and their related identifiers keep their
+// Portuguese names on purpose; only comments and messages are in English.
 
 // ---------------------------------------------------------------------------
-// Constantes
+// Constants
 // ---------------------------------------------------------------------------
 
 export const LIMITE_FILEIRA = 1200;
-/** Clock padrão da calculadora. Antes era 100%, agora 250% como pedido. */
+/** Calculator default clock. It used to be 100%, now 250% as requested. */
 export const CLOCK_PADRAO = 250;
 export const CLOCK_MAX = 250;
 export const EPSILON = 1e-9;
@@ -25,7 +28,7 @@ export const TOLERANCIA_NORMALIZACAO = 0.0005;
 export type TipoClock = "UNDERCLOCK" | "NORMAL" | "OVERCLOCK";
 
 // ---------------------------------------------------------------------------
-// Formatação (pt-BR, vírgula decimal)
+// Formatting (pt-BR, comma decimal)
 // ---------------------------------------------------------------------------
 
 export function fmt(valor: number, casas = 3): string {
@@ -41,13 +44,13 @@ export function fmtFlex(valor: number, maxCasas = 6): string {
   return texto.replace(".", ",");
 }
 
-/** Texto exato do clock para colar no jogo (mesma regra de sempre). */
+/** Exact clock text to paste into the game (same rule as always). */
 export function fmtClockClipboard(valor: number): string {
   return fmtFlex(valor, 6);
 }
 
 // ---------------------------------------------------------------------------
-// Parsing tolerante (usado pela TUI). Devolve null em vez de lançar erro.
+// Tolerant parsing (used by the TUI). Returns null instead of throwing.
 // ---------------------------------------------------------------------------
 
 export function parseNumero(texto: string): number | null {
@@ -63,15 +66,15 @@ export function parseInteiroPositivo(texto: string): number | null {
   return valor;
 }
 
-/** Mantém só dígitos — pros campos lidos por `parseInteiroPositivo`. */
+/** Keeps digits only — for fields read by `parseInteiroPositivo`. */
 export function sanitizarInteiro(texto: string): string {
   return String(texto).replace(/[^0-9]/g, "");
 }
 
 /**
- * Mantém dígitos e UM único separador decimal (vírgula ou ponto, o que o usuário
- * digitar primeiro). `parseNumero` aceita os dois e troca a primeira vírgula por
- * ponto, então aqui só garantimos que não entre letra nem um segundo separador.
+ * Keeps digits and ONE decimal separator (comma or dot, whichever the user
+ * types first). `parseNumero` accepts both and swaps the first comma for a dot,
+ * so here we only make sure no letters and no second separator get through.
  */
 export function sanitizarDecimal(texto: string): string {
   let saida = "";
@@ -88,7 +91,7 @@ export function sanitizarDecimal(texto: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Blocos de cálculo básicos
+// Basic calculation blocks
 // ---------------------------------------------------------------------------
 
 export function capacidadePorMaquina(taxa100: number, clock: number): number {
@@ -110,7 +113,7 @@ export function classificarClock(clock: number): TipoClock {
 }
 
 // ---------------------------------------------------------------------------
-// Normalização de taxas para frações "redondas" do Satisfactory
+// Rate normalization to "round" Satisfactory fractions
 // ---------------------------------------------------------------------------
 
 export interface InfoNormalizacao {
@@ -190,12 +193,13 @@ export function normalizarTaxaSatisfactory(valor: number): InfoNormalizacao {
 }
 
 // ---------------------------------------------------------------------------
-// 1+2) SÓ A SAÍDA / SÓ A ENTRADA — quanto sai/entra com N máquinas num clock
+// 1+2) JUST THE OUTPUT / JUST THE INPUT — how much N machines put out/in at a clock
 // ---------------------------------------------------------------------------
 //
-// Saída e entrada são a MESMA conta (máquinas × taxa/100% × clock); o que muda
-// é só o rótulo, que a TaxaScreen escolhe via `ehSaida`. Por isso há um único
-// calculador `calcularTaxa` em vez de duas funções idênticas pra manter em sync.
+// Output and input are the SAME math (machines × rate/100% × clock); only the
+// label changes, which RateScreen picks via `isOutput`. That's why there's a
+// single `calcularTaxa` calculator instead of two identical functions to keep
+// in sync.
 
 export interface ResultadoTaxa {
   maquinas: number;
@@ -223,7 +227,7 @@ export function calcularTaxa(
 }
 
 // ---------------------------------------------------------------------------
-// 3) SÓ O CLOCK — clock necessário para bater uma meta de produção
+// 3) JUST THE CLOCK — clock needed to hit a production target
 // ---------------------------------------------------------------------------
 
 export interface ResultadoMetaClock {
@@ -281,7 +285,7 @@ export function calcularClockParaMeta(
 }
 
 // ---------------------------------------------------------------------------
-// 4) LAYOUT COMPLETO a partir da entrada desejada
+// 4) FULL LAYOUT from the desired input
 // ---------------------------------------------------------------------------
 
 export interface ResultadoLayout {
@@ -300,7 +304,7 @@ export interface ResultadoLayout {
   clockExato: number;
   entradaPorMaquinaNoClockExato: number;
   entradaPorFileiraNoClockExato: number;
-  // saída opcional
+  // optional output
   saida100?: number;
   saidaPorMaquinaNoClockEscolhido?: number;
   saidaPorFileiraNoClockEscolhido?: number;
@@ -358,14 +362,16 @@ export function calcularLayoutPorEntrada(
   const entradaPorFileiraNoClockEscolhido =
     maquinasPorFileiraMinimas * entradaPorMaquinaNoClockEscolhido;
 
-  // Não checamos `entradaPorFileiraNoClockEscolhido` contra o limite da fileira:
-  // esse valor é só o que entraria SE rodássemos no clock-teto escolhido, antes
-  // do ajuste fino. A operação recomendada é no `clockExato` (o valor que vai pro
-  // jogo), onde a fileira carrega exatamente `meta/fileiras = entradaAlvoPorFileira`,
-  // já validado acima contra LIMITE_FILEIRA. Arredondar as máquinas pra cima só
-  // gera excesso no clock-teto (mostrado como "Excesso no clock"), nunca estoura a
-  // esteira no clock exato. Checar o clock-teto aqui era um falso positivo
-  // (ex.: meta 2400, 45/máq, 2 fileiras → 1237,5 no teto, mas 1200 no exato).
+  // We don't check `entradaPorFileiraNoClockEscolhido` against the row limit:
+  // that value is only what WOULD enter IF we ran at the chosen ceiling clock,
+  // before the fine tuning. The recommended operation is at `clockExato` (the
+  // value that goes into the game), where each row carries exactly
+  // `target/rows = entradaAlvoPorFileira`, already validated above against
+  // LIMITE_FILEIRA. Rounding machines up only creates excess at the ceiling
+  // clock (shown as "Excess at ceiling clock"), never overflows the belt at the
+  // exact clock. Checking the ceiling clock here was a false positive
+  // (e.g. target 2400, 45/machine, 2 rows → 1237.5 at the ceiling, but 1200 at
+  // the exact clock).
 
   const totalMaquinas = maquinasPorFileiraMinimas * fileiras;
   const entradaTotalNoClockEscolhido =
@@ -419,10 +425,10 @@ export function calcularLayoutPorEntrada(
 }
 
 /**
- * Número mínimo de fileiras recomendado para o cálculo "fechar": cada fileira
- * recebe no máximo {@link LIMITE_FILEIRA} itens/min, então precisamos de pelo
- * menos `ceil(meta / LIMITE_FILEIRA)` fileiras. Devolve null se a meta for
- * inválida (<= 0).
+ * Minimum recommended number of rows for the calculation to "close": each row
+ * receives at most {@link LIMITE_FILEIRA} items/min, so we need at least
+ * `ceil(target / LIMITE_FILEIRA)` rows. Returns null if the target is invalid
+ * (<= 0).
  */
 export function fileirasMinimasRecomendadas(metaEntradaTotal: number): number | null {
   if (!Number.isFinite(metaEntradaTotal) || metaEntradaTotal <= 0) return null;

@@ -1,19 +1,19 @@
 #!/usr/bin/env bun
-// Gera um executável standalone (.exe) do app com `bun build --compile`.
+// Builds a standalone executable (.exe) of the app with `bun build --compile`.
 //
-// O pulo do gato é a lib nativa do OpenTUI (opentui.dll). Em runtime o OpenTUI
-// a localiza via `import("@opentui/core-win32-x64")`, que NÃO existe dentro de
-// um binário compilado (não há node_modules em disco). A saída: `src/exe.tsx`
-// embute a dll com `type: "file"` e seta `OPENTUI_LIB_PATH` pra ela antes de
-// carregar o app, que é o override que o loader FFI respeita. Resultado: um
-// único .exe autocontido, sem dll ao lado.
+// The trick is OpenTUI's native lib (opentui.dll). At runtime OpenTUI locates it
+// via `import("@opentui/core-win32-x64")`, which does NOT exist inside a compiled
+// binary (there is no node_modules on disk). The fix: `src/exe.tsx` embeds the
+// dll with `type: "file"` and sets `OPENTUI_LIB_PATH` to it before loading the
+// app, which is the override the FFI loader respects. Result: a single
+// self-contained .exe, no dll alongside it.
 //
-// Depois de compilar, o .exe é copiado pra uma pasta do PATH como `sfcalc.exe`,
-// então o comando `sfcalc` fica disponível em qualquer terminal. O destino é
-// `~/.local/bin` por padrão (ajuste com SFCALC_INSTALL_DIR); pule a cópia com
-// `--no-install` ou SFCALC_NO_INSTALL=1.
+// After compiling, the .exe is copied to a folder on the PATH as `sfcalc.exe`,
+// so the `sfcalc` command is available in any terminal. The destination is
+// `~/.local/bin` by default (override with SFCALC_INSTALL_DIR); skip the copy
+// with `--no-install` or SFCALC_NO_INSTALL=1.
 //
-// Uso:  bun run build:exe   (ou: bun run scripts/build-exe.ts [--no-install])
+// Usage:  bun run build:exe   (or: bun run scripts/build-exe.ts [--no-install])
 import { mkdirSync } from "fs";
 import { homedir } from "os";
 import { join, resolve } from "path";
@@ -22,12 +22,12 @@ const root = resolve(import.meta.dir, "..");
 const entry = resolve(root, "src/exe.tsx");
 const outfile = resolve(root, "dist/satisfactory-calculator-tui.exe");
 
-// Pasta onde o comando `sfcalc` é instalado (precisa estar no PATH).
+// Folder where the `sfcalc` command is installed (must be on the PATH).
 const installDir = process.env.SFCALC_INSTALL_DIR ?? join(homedir(), ".local", "bin");
 const installPath = join(installDir, "sfcalc.exe");
-const pularInstall = process.argv.includes("--no-install") || process.env.SFCALC_NO_INSTALL === "1";
+const skipInstall = process.argv.includes("--no-install") || process.env.SFCALC_NO_INSTALL === "1";
 
-console.log("Compilando executável...");
+console.log("Compiling executable...");
 const t0 = performance.now();
 
 const proc = Bun.spawnSync(
@@ -45,21 +45,21 @@ const proc = Bun.spawnSync(
 );
 
 if (!proc.success) {
-  console.error("\nFalha ao compilar o executável.");
+  console.error("\nFailed to compile the executable.");
   process.exit(proc.exitCode ?? 1);
 }
 
-const segundos = ((performance.now() - t0) / 1000).toFixed(1);
+const seconds = ((performance.now() - t0) / 1000).toFixed(1);
 const mb = (Bun.file(outfile).size / 1024 / 1024).toFixed(1);
-console.log(`\nPronto em ${segundos}s -> ${outfile} (${mb} MB)`);
-console.log("É standalone: a dll nativa já vai embutida, pode copiar só o .exe.");
+console.log(`\nDone in ${seconds}s -> ${outfile} (${mb} MB)`);
+console.log("It's standalone: the native dll is embedded, you can copy just the .exe.");
 
-// Instala como `sfcalc` numa pasta do PATH, a não ser que tenham pedido pra pular.
-if (pularInstall) {
-  console.log("\nInstalação pulada (--no-install).");
+// Installs as `sfcalc` in a folder on the PATH, unless skipping was requested.
+if (skipInstall) {
+  console.log("\nInstall skipped (--no-install).");
 } else {
   mkdirSync(installDir, { recursive: true });
   await Bun.write(installPath, Bun.file(outfile));
-  console.log(`\nInstalado: ${installPath}`);
-  console.log("Comando `sfcalc` pronto (abra um terminal novo se ele não estiver no PATH ainda).");
+  console.log(`\nInstalled: ${installPath}`);
+  console.log("Command `sfcalc` ready (open a new terminal if it's not on the PATH yet).");
 }

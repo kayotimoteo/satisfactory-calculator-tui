@@ -24,10 +24,10 @@ export function Footer({
         ? theme.err
         : theme.warn;
 
-  // Legenda quebrada em duas linhas: a primeira metade dos atalhos em cima,
-  // o resto embaixo — assim não estoura a largura quando há muitos comandos.
-  const meio = Math.ceil(hints.length / 2);
-  const linhas = [hints.slice(0, meio), hints.slice(meio)];
+  // Legend split across two lines: the first half of the shortcuts on top, the
+  // rest below — so it doesn't overflow the width when there are many commands.
+  const half = Math.ceil(hints.length / 2);
+  const lines = [hints.slice(0, half), hints.slice(half)];
 
   return (
     <box
@@ -38,9 +38,9 @@ export function Footer({
       paddingRight={1}
     >
       <box flexDirection="column" gap={0}>
-        {linhas.map((linha, i) => (
+        {lines.map((line, i) => (
           <box key={i} flexDirection="row" gap={2}>
-            {linha.map((h) => (
+            {line.map((h) => (
               <text key={h.key} fg={theme.muted}>
                 <span fg={theme.accent}>{h.key}</span> {h.label}
               </text>

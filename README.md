@@ -103,7 +103,7 @@ src/
     storage.ts       # histórico/salvos em JSON
   ui/                # tema + hooks (useField, useFieldNav)
   components/        # Header, Footer, Panel, Field, Row, Menu
-  screens/           # MenuScreen, ClockScreen, TaxaScreen, LayoutScreen, HistoryScreen
+  screens/           # MenuScreen, ClockScreen, RateScreen, LayoutScreen, HistoryScreen
 ```
 
 ## Notas sobre a cópia do clock

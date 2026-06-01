@@ -9,29 +9,29 @@ export interface FieldProps {
   focused: boolean;
   onInput: (value: string) => void;
   placeholder?: string;
-  /** dica curta mostrada à direita (ex.: unidade ou valor calculado) */
+  /** short hint shown on the right (e.g. unit or computed value) */
   hint?: string;
   hintColor?: string;
   width?: number;
   /**
-   * Restringe o que pode ser digitado:
-   *   "integer" → só dígitos (campos de `parseInteiroPositivo`)
-   *   "decimal" → dígitos + um separador `,`/`.` (campos de `parseNumero`)
-   * Caracteres barrados nem chegam no estado; o buffer do input é corrigido na hora.
+   * Restricts what can be typed:
+   *   "integer" → digits only (fields read by `parseInteiroPositivo`)
+   *   "decimal" → digits + one `,`/`.` separator (fields read by `parseNumero`)
+   * Blocked characters never reach state; the input buffer is fixed on the spot.
    */
   numeric?: "integer" | "decimal";
   /**
-   * Disparado quando o campo é clicado com o mouse. O OpenTUI já dá foco
-   * nativo ao <input> no clique (dá pra digitar), mas o estado de navegação
-   * por teclado não fica sabendo — então a borda de foco continuaria no
-   * campo antigo. A tela usa isso pra mover o índice focado pro campo clicado.
+   * Fired when the field is clicked with the mouse. OpenTUI already gives the
+   * <input> native focus on click (you can type), but the keyboard navigation
+   * state doesn't know about it — so the focus border would stay on the old
+   * field. The screen uses this to move the focused index to the clicked field.
    */
   onFocusRequest?: () => void;
 }
 
 /**
- * Linha de formulário: rótulo + caixa de input + dica opcional.
- * A borda muda de cor quando o campo está focado.
+ * Form row: label + input box + optional hint.
+ * The border changes color when the field is focused.
  */
 export function Field({
   label,
@@ -49,11 +49,11 @@ export function Field({
 
   const handleInput = (raw: string) => {
     if (!numeric) return onInput(raw);
-    const limpo = numeric === "integer" ? sanitizarInteiro(raw) : sanitizarDecimal(raw);
-    // O <input> mantém o próprio buffer; quando barramos um caractere o estado
-    // não muda, então o React não reaplica `value`. Corrigimos o buffer direto.
-    if (limpo !== raw && inputRef.current) inputRef.current.value = limpo;
-    onInput(limpo);
+    const clean = numeric === "integer" ? sanitizarInteiro(raw) : sanitizarDecimal(raw);
+    // The <input> keeps its own buffer; when we block a character the state
+    // doesn't change, so React won't reapply `value`. We fix the buffer directly.
+    if (clean !== raw && inputRef.current) inputRef.current.value = clean;
+    onInput(clean);
   };
 
   return (

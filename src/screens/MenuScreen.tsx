@@ -4,7 +4,7 @@ import { Panel } from "../components/Panel";
 import { theme } from "../ui/theme";
 import { CLOCK_PADRAO } from "../lib/satisfactory";
 
-const ITENS = [
+const ITEMS = [
   { id: "layout", label: "Layout por entrada", desc: "entrada/min + fileiras → tudo" },
   { id: "clock", label: "Clock para meta", desc: "máquinas + meta → clock necessário" },
   { id: "saida", label: "Só a saída", desc: "máquinas + clock → produção total" },
@@ -17,7 +17,7 @@ export function MenuScreen({ onSelect }: { onSelect: (id: string) => void }) {
   return (
     <box flexDirection="column" gap={1} flexGrow={1}>
       <Panel title="O que vamos calcular?">
-        <Menu items={ITENS} onSelect={onSelect} />
+        <Menu items={ITEMS} onSelect={onSelect} />
       </Panel>
       <box flexDirection="column">
         <text fg={theme.textDim}>

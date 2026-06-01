@@ -6,8 +6,8 @@ import { Row } from "../components/Row";
 import { SavePrompt } from "../components/SavePrompt";
 import { useField } from "../ui/useField";
 import { useFieldNav } from "../ui/useFieldNav";
-import { copiarClock } from "../lib/clipboard";
-import { salvarEntrada } from "../lib/storage";
+import { copyClock } from "../lib/clipboard";
+import { saveEntry } from "../lib/storage";
 import { theme } from "../ui/theme";
 import {
   CLOCK_PADRAO,
@@ -21,172 +21,184 @@ import {
 } from "../lib/satisfactory";
 import type { ScreenProps } from "./types";
 
-// LAYOUT COMPLETO a partir da entrada desejada (o modo "poderoso").
+// FULL LAYOUT from the desired input (the "powerful" mode).
 export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
-  // Valores iniciais do formulário (o "padrão" pro qual o reset volta).
-  const inicial = {
-    metaEntrada: seed?.metaEntrada ?? "",
-    entrada100: seed?.entrada100 ?? "",
-    saida100: seed?.saida100 ?? "",
+  // Initial form values (the "default" the reset goes back to).
+  const initial = {
+    targetInput: seed?.metaEntrada ?? "",
+    input100: seed?.entrada100 ?? "",
+    output100: seed?.saida100 ?? "",
     clock: seed?.clock ?? String(CLOCK_PADRAO),
-    fileiras: seed?.fileiras ?? "1",
+    rows: seed?.fileiras ?? "1",
   };
-  const metaEntrada = useField(inicial.metaEntrada);
-  const entrada100 = useField(inicial.entrada100);
-  const saida100 = useField(inicial.saida100);
-  const clock = useField(inicial.clock);
-  const fileiras = useField(inicial.fileiras);
-  // O <input> é semeado, não controlado: pra refletir um valor que ajustamos
-  // por código (clamp ao mínimo, ou um reset) remontamos os campos trocando
-  // estas keys — filKey só pras fileiras, formKey pro resto do formulário.
-  const [filKey, setFilKey] = useState(0);
+  const targetInput = useField(initial.targetInput);
+  const input100 = useField(initial.input100);
+  const output100 = useField(initial.output100);
+  const clock = useField(initial.clock);
+  const rows = useField(initial.rows);
+  // The <input> is seeded, not controlled: to reflect a value we adjust in code
+  // (clamp to the minimum, or a reset) we remount the fields by changing these
+  // keys — rowsKey just for the rows, formKey for the rest of the form.
+  const [rowsKey, setRowsKey] = useState(0);
   const [formKey, setFormKey] = useState(0);
-  const [salvando, setSalvando] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const dados = useMemo(() => {
-    const meta = parseNumero(metaEntrada.value);
-    const ent = parseNumero(entrada100.value);
-    const cl = parseNumero(clock.value);
-    const fil = parseInteiroPositivo(fileiras.value);
-    if (meta === null || ent === null || cl === null || fil === null) return null;
+  const data = useMemo(() => {
+    const target = parseNumero(targetInput.value);
+    const input = parseNumero(input100.value);
+    const clk = parseNumero(clock.value);
+    const rws = parseInteiroPositivo(rows.value);
+    if (target === null || input === null || clk === null || rws === null) return null;
 
-    const sai = saida100.value.trim() === "" ? null : parseNumero(saida100.value);
-    const infoEnt = normalizarTaxaSatisfactory(ent);
-    const infoSai = sai !== null ? normalizarTaxaSatisfactory(sai) : null;
-    const saiNorm = infoSai ? infoSai.valorNormalizado : null;
+    const out = output100.value.trim() === "" ? null : parseNumero(output100.value);
+    const infoInput = normalizarTaxaSatisfactory(input);
+    const infoOutput = out !== null ? normalizarTaxaSatisfactory(out) : null;
+    const outNorm = infoOutput ? infoOutput.valorNormalizado : null;
 
     try {
-      const base = calcularLayoutPorEntrada(meta, infoEnt.valorNormalizado, fil, cl, saiNorm);
-      return { ok: true as const, base, infoEnt, infoSai };
+      const base = calcularLayoutPorEntrada(target, infoInput.valorNormalizado, rws, clk, outNorm);
+      return { ok: true as const, base, infoInput, infoOutput };
     } catch (e) {
-      return { ok: false as const, erro: (e as Error).message };
+      return { ok: false as const, error: (e as Error).message };
     }
-  }, [metaEntrada.value, entrada100.value, saida100.value, clock.value, fileiras.value]);
+  }, [targetInput.value, input100.value, output100.value, clock.value, rows.value]);
 
-  // Mínimo de fileiras recomendado, atualizado conforme a meta é digitada.
-  const minFileiras = useMemo(() => {
-    const meta = parseNumero(metaEntrada.value);
-    return meta === null ? null : fileirasMinimasRecomendadas(meta);
-  }, [metaEntrada.value]);
-  const filAtual = parseInteiroPositivo(fileiras.value);
-  const filInsuficiente =
-    minFileiras !== null && filAtual !== null && filAtual < minFileiras;
+  // Minimum recommended number of rows, updated as the target is typed.
+  const minRows = useMemo(() => {
+    const target = parseNumero(targetInput.value);
+    return target === null ? null : fileirasMinimasRecomendadas(target);
+  }, [targetInput.value]);
+  const currentRows = parseInteiroPositivo(rows.value);
+  const rowsInsufficient =
+    minRows !== null && currentRows !== null && currentRows < minRows;
 
-  // Reseta o input de fileiras pro valor mínimo (e remonta pra refletir na tela).
-  const ajustarFileiras = (min: number) => {
-    fileiras.set(String(min));
-    setFilKey((k) => k + 1);
+  // Resets the rows input to the minimum value (and remounts to reflect it).
+  const adjustRows = (min: number) => {
+    rows.set(String(min));
+    setRowsKey((k) => k + 1);
   };
 
-  // Quando o mínimo recomendado MUDA (a meta foi editada em tela), o campo de
-  // fileiras passa a obedecê-lo — pra cima OU pra baixo. A ideia é sempre
-  // partir do mínimo possível; se quiser mais (por tamanho), o usuário digita
-  // na mão. Sem isso, ao baixar a meta o campo ficaria preso num valor antigo.
+  // When the recommended minimum CHANGES (the target was edited on screen), the
+  // rows field starts obeying it — up OR down. The idea is to always start from
+  // the smallest possible; if you want more (for size), type it by hand. Without
+  // this, lowering the target would leave the field stuck on an old value.
   //
-  // Mas pulamos a 1ª execução (mount): ao reabrir um layout salvo com fileiras
-  // acima do mínimo (ex.: 6 fileiras quando o mínimo é 5), forçar pro mínimo
-  // mudaria totalMaquinas/clockExato e violaria o "reabrir exatamente como foi
-  // digitado". O seed fica intocado; o clamp só vale pra edições posteriores.
-  const minFileirasMontou = useRef(false);
+  // But we skip the 1st run (mount): reopening a saved layout with rows above the
+  // minimum (e.g. 6 rows when the minimum is 5), forcing it to the minimum would
+  // change totalMaquinas/clockExato and break "reopen exactly as typed". The seed
+  // stays untouched; the clamp only applies to later edits.
+  const minRowsMounted = useRef(false);
   useEffect(() => {
-    if (!minFileirasMontou.current) {
-      minFileirasMontou.current = true;
+    if (!minRowsMounted.current) {
+      minRowsMounted.current = true;
       return;
     }
-    if (minFileiras === null) return;
-    const atual = parseInteiroPositivo(fileiras.value);
-    if (atual !== minFileiras) ajustarFileiras(minFileiras);
+    if (minRows === null) return;
+    const current = parseInteiroPositivo(rows.value);
+    if (current !== minRows) adjustRows(minRows);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minFileiras]);
+  }, [minRows]);
 
-  const snap = useRef(dados);
-  snap.current = dados;
-  const refs = useRef({ metaEntrada, entrada100, saida100, clock, fileiras });
-  refs.current = { metaEntrada, entrada100, saida100, clock, fileiras };
+  const snap = useRef(data);
+  snap.current = data;
+  const refs = useRef({ targetInput, input100, output100, clock, rows });
+  refs.current = { targetInput, input100, output100, clock, rows };
 
-  const copiar = () => {
+  const copy = () => {
     const d = snap.current;
     if (!d || !d.ok) return setStatus({ text: "Sem resultado válido pra copiar.", tone: "warn" });
-    const { texto, ok } = copiarClock(d.base.clockExato);
+    const { text, ok } = copyClock(d.base.clockExato);
     setStatus({
-      text: ok ? `Clock exato copiado: ${texto}` : "Falhou ao copiar.",
+      text: ok ? `Clock exato copiado: ${text}` : "Falhou ao copiar.",
       tone: ok ? "ok" : "err",
     });
   };
 
-  const abrirSalvar = () => {
+  const openSave = () => {
     const d = snap.current;
     if (!d || !d.ok) return setStatus({ text: "Sem resultado válido pra salvar.", tone: "warn" });
-    setSalvando(true);
+    setSaving(true);
   };
 
-  const confirmarSalvar = (nome: string) => {
+  const confirmSave = (name: string) => {
     const d = snap.current;
-    if (!d || !d.ok) return setSalvando(false);
+    if (!d || !d.ok) return setSaving(false);
     const c = refs.current;
-    salvarEntrada({
-      nome: nome || `Layout ${c.metaEntrada.value}/min`,
+    saveEntry({
+      nome: name || `Layout ${c.targetInput.value}/min`,
       modo: "layout",
       campos: {
-        metaEntrada: c.metaEntrada.value,
-        entrada100: c.entrada100.value,
-        saida100: c.saida100.value,
+        metaEntrada: c.targetInput.value,
+        entrada100: c.input100.value,
+        saida100: c.output100.value,
         clock: c.clock.value,
-        fileiras: c.fileiras.value,
+        fileiras: c.rows.value,
       },
-      resumo: `${d.base.totalMaquinas} máq • ${c.fileiras.value} fileira(s) • clock ${fmt(d.base.clockExato, 2)}%`,
+      resumo: `${d.base.totalMaquinas} máq • ${c.rows.value} fileira(s) • clock ${fmt(d.base.clockExato, 2)}%`,
       clock: d.base.clockExato,
     });
-    setSalvando(false);
+    setSaving(false);
     setStatus({ text: "Salvo no histórico.", tone: "ok" });
   };
 
-  const resetar = () => {
-    metaEntrada.set(inicial.metaEntrada);
-    entrada100.set(inicial.entrada100);
-    saida100.set(inicial.saida100);
-    clock.set(inicial.clock);
-    fileiras.set(inicial.fileiras);
+  const reset = () => {
+    targetInput.set(initial.targetInput);
+    input100.set(initial.input100);
+    output100.set(initial.output100);
+    clock.set(initial.clock);
+    rows.set(initial.rows);
     setFormKey((k) => k + 1);
-    setFilKey((k) => k + 1);
+    setRowsKey((k) => k + 1);
     setStatus(null);
+  };
+
+  // Reads live values via the ref so the (once-bound) Esc handler isn't stale.
+  const isDirty = () => {
+    const c = refs.current;
+    return (
+      c.targetInput.value !== initial.targetInput ||
+      c.input100.value !== initial.input100 ||
+      c.output100.value !== initial.output100 ||
+      c.clock.value !== initial.clock ||
+      c.rows.value !== initial.rows
+    );
   };
 
   const { index, setIndex } = useFieldNav(
     5,
-    { onBack, onCopy: copiar, onSave: abrirSalvar, onReset: resetar },
-    salvando,
+    { onBack, onCopy: copy, onSave: openSave, onReset: reset, isDirty },
+    saving,
   );
   useEffect(() => setStatus(null), [setStatus]);
 
-  const foco = salvando ? -1 : index;
-  // Clique do mouse num campo move o foco de teclado pra ele (sincroniza a
-  // borda amarela com onde o OpenTUI já jogou o foco nativo do <input>).
-  const focar = (n: number) => () => {
-    if (!salvando) setIndex(n);
+  const focus = saving ? -1 : index;
+  // A mouse click on a field moves the keyboard focus to it (syncs the yellow
+  // border with where OpenTUI already placed the <input>'s native focus).
+  const focusField = (n: number) => () => {
+    if (!saving) setIndex(n);
   };
 
-  // Ao sair do campo Fileiras, garante que não ficou nada abaixo do mínimo
-  // (durante a digitação deixamos livre pra permitir números de vários dígitos).
-  const filFocado = foco === 4;
-  const filEraFocado = useRef(filFocado);
+  // When leaving the Rows field, make sure nothing stayed below the minimum
+  // (while typing we leave it free to allow multi-digit numbers).
+  const rowsFocused = focus === 4;
+  const rowsWasFocused = useRef(rowsFocused);
   useEffect(() => {
-    if (filEraFocado.current && !filFocado) {
-      const min = minFileiras ?? 1;
-      const atual = parseInteiroPositivo(fileiras.value);
-      if (atual === null || atual < min) ajustarFileiras(min);
+    if (rowsWasFocused.current && !rowsFocused) {
+      const min = minRows ?? 1;
+      const current = parseInteiroPositivo(rows.value);
+      if (current === null || current < min) adjustRows(min);
     }
-    filEraFocado.current = filFocado;
+    rowsWasFocused.current = rowsFocused;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filFocado, minFileiras]);
+  }, [rowsFocused, minRows]);
 
   return (
     <box flexDirection="column" gap={1} flexGrow={1}>
-      {salvando ? (
+      {saving ? (
         <SavePrompt
-          defaultName={`Layout ${metaEntrada.value || "?"}/min`}
-          onConfirm={confirmarSalvar}
-          onCancel={() => setSalvando(false)}
+          defaultName={`Layout ${targetInput.value || "?"}/min`}
+          onConfirm={confirmSave}
+          onCancel={() => setSaving(false)}
         />
       ) : null}
 
@@ -201,47 +213,47 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
         </text>
 
         <Panel title="Dados">
-          <Field key={`metaEntrada-${formKey}`} label="Entrada total" value={metaEntrada.value} focused={foco === 0} onFocusRequest={focar(0)} onInput={metaEntrada.set} placeholder="/min" hint="itens/min" numeric="decimal" />
-          <Field key={`entrada100-${formKey}`} label="Entrada por máquina a 100%" value={entrada100.value} focused={foco === 1} onFocusRequest={focar(1)} onInput={entrada100.set} placeholder="/min" hint="itens/min" numeric="decimal" />
-          <Field key={`saida100-${formKey}`} label="Saída por máquina a 100%" value={saida100.value} focused={foco === 2} onFocusRequest={focar(2)} onInput={saida100.set} placeholder="opcional" hint="opcional" numeric="decimal" />
-          <Field key={`clock-${formKey}`} label="Clock" value={clock.value} focused={foco === 3} onFocusRequest={focar(3)} onInput={clock.set} placeholder="%" hint="% (padrão 250)" numeric="decimal" />
+          <Field key={`metaEntrada-${formKey}`} label="Entrada total" value={targetInput.value} focused={focus === 0} onFocusRequest={focusField(0)} onInput={targetInput.set} placeholder="/min" hint="itens/min" numeric="decimal" />
+          <Field key={`entrada100-${formKey}`} label="Entrada por máquina a 100%" value={input100.value} focused={focus === 1} onFocusRequest={focusField(1)} onInput={input100.set} placeholder="/min" hint="itens/min" numeric="decimal" />
+          <Field key={`saida100-${formKey}`} label="Saída por máquina a 100%" value={output100.value} focused={focus === 2} onFocusRequest={focusField(2)} onInput={output100.set} placeholder="opcional" hint="opcional" numeric="decimal" />
+          <Field key={`clock-${formKey}`} label="Clock" value={clock.value} focused={focus === 3} onFocusRequest={focusField(3)} onInput={clock.set} placeholder="%" hint="% (padrão 250)" numeric="decimal" />
           <Field
-            key={`fileiras-${filKey}-${formKey}`}
+            key={`fileiras-${rowsKey}-${formKey}`}
             label="Fileiras"
-            value={fileiras.value}
-            focused={foco === 4}
-            onFocusRequest={focar(4)}
-            onInput={fileiras.set}
+            value={rows.value}
+            focused={focus === 4}
+            onFocusRequest={focusField(4)}
+            onInput={rows.set}
             placeholder="ex: 2"
-            hint={minFileiras !== null ? `mín. ${minFileiras}` : undefined}
-            hintColor={filInsuficiente ? theme.warn : theme.ok}
+            hint={minRows !== null ? `mín. ${minRows}` : undefined}
+            hintColor={rowsInsufficient ? theme.warn : theme.ok}
             numeric="integer"
           />
         </Panel>
 
-        {!dados ? (
+        {!data ? (
           <text fg={theme.muted}>
             Preencha entrada total, entrada/100%, clock e fileiras.
-            {minFileiras !== null ? ` Recomendo ao menos ${minFileiras} fileira(s).` : ""}
+            {minRows !== null ? ` Recomendo ao menos ${minRows} fileira(s).` : ""}
           </text>
-        ) : !dados.ok ? (
+        ) : !data.ok ? (
           <Panel title="Não deu" borderColor={theme.err}>
-            <text fg={theme.err}>{dados.erro}</text>
+            <text fg={theme.err}>{data.error}</text>
           </Panel>
         ) : (
           <Panel title="Layout mínimo" borderColor={theme.ok}>
             <box flexDirection="row" justifyContent="space-between">
               <text fg={theme.textDim}>Clock exato</text>
-              <text fg={theme.accent} attributes={TextAttributes.BOLD}>{fmt(dados.base.clockExato, 4)}%</text>
+              <text fg={theme.accent} attributes={TextAttributes.BOLD}>{fmt(data.base.clockExato, 4)}%</text>
             </box>
-            <Row label="Total de máquinas" value={`${dados.base.totalMaquinas}`} strong />
-            <Row label="Máquinas por fileira" value={`${dados.base.maquinasPorFileiraMinimas}`} />
-            <Row label="Entrada por fileira (clock exato)" value={`${fmtFlex(dados.base.entradaPorFileiraNoClockExato)} /min`} strong />
-            <Row label="Entrada por fileira (clock teto)" value={`${fmtFlex(dados.base.entradaPorFileiraNoClockEscolhido)} /min`} color={theme.muted} />
-            <Row label="Entrada total no clock teto" value={`${fmtFlex(dados.base.entradaTotalNoClockEscolhido)} /min`} color={theme.muted} />
-            <Row label="Excesso no clock teto" value={`${fmtFlex(dados.base.excessoEntradaNoClockEscolhido)} /min`} color={theme.warn} />
-            {dados.base.saidaTotalNoClockExato !== undefined ? (
-              <Row label="Saída total (clock exato)" value={`${fmtFlex(dados.base.saidaTotalNoClockExato)} /min`} color={theme.over} />
+            <Row label="Total de máquinas" value={`${data.base.totalMaquinas}`} strong />
+            <Row label="Máquinas por fileira" value={`${data.base.maquinasPorFileiraMinimas}`} />
+            <Row label="Entrada por fileira (clock exato)" value={`${fmtFlex(data.base.entradaPorFileiraNoClockExato)} /min`} strong />
+            <Row label="Entrada por fileira (clock teto)" value={`${fmtFlex(data.base.entradaPorFileiraNoClockEscolhido)} /min`} color={theme.muted} />
+            <Row label="Entrada total no clock teto" value={`${fmtFlex(data.base.entradaTotalNoClockEscolhido)} /min`} color={theme.muted} />
+            <Row label="Excesso no clock teto" value={`${fmtFlex(data.base.excessoEntradaNoClockEscolhido)} /min`} color={theme.warn} />
+            {data.base.saidaTotalNoClockExato !== undefined ? (
+              <Row label="Saída total (clock exato)" value={`${fmtFlex(data.base.saidaTotalNoClockExato)} /min`} color={theme.over} />
             ) : null}
           </Panel>
         )}

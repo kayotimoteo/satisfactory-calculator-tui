@@ -2,19 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { Panel } from "../components/Panel";
-import { copiarClock } from "../lib/clipboard";
+import { copyClock } from "../lib/clipboard";
 import {
-  CAMINHO_HISTORICO,
-  carregarHistorico,
-  limparHistorico,
-  removerEntrada,
-  type EntradaHistorico,
+  HISTORY_PATH,
+  loadHistory,
+  clearHistory,
+  removeEntry,
+  type HistoryEntry,
 } from "../lib/storage";
 import { theme } from "../ui/theme";
 import { fmt } from "../lib/satisfactory";
 import type { StatusMsg } from "../components/Footer";
 
-const NOMES_MODO: Record<EntradaHistorico["modo"], string> = {
+const MODE_LABELS: Record<HistoryEntry["modo"], string> = {
   clock: "clock",
   saida: "saída",
   entrada: "entrada",
@@ -28,26 +28,26 @@ export function HistoryScreen({
 }: {
   onBack: () => void;
   setStatus: (s: StatusMsg | null) => void;
-  onOpen: (entrada: EntradaHistorico) => void;
+  onOpen: (entry: HistoryEntry) => void;
 }) {
-  const [lista, setLista] = useState<EntradaHistorico[]>(() => carregarHistorico());
+  const [list, setList] = useState<HistoryEntry[]>(() => loadHistory());
   const [active, setActive] = useState(0);
   const idxRef = useRef(0);
-  const listaRef = useRef(lista);
-  listaRef.current = lista;
+  const listRef = useRef(list);
+  listRef.current = list;
 
   useEffect(() => setStatus(null), [setStatus]);
 
   const move = (delta: number) => {
-    const len = listaRef.current.length;
+    const len = listRef.current.length;
     if (len === 0) return;
     const next = (idxRef.current + delta + len) % len;
     idxRef.current = next;
     setActive(next);
   };
 
-  // Move a seleção pra um item (usado pelo mouse: passar o cursor seleciona,
-  // como no Menu principal).
+  // Moves the selection to an item (used by the mouse: hovering selects, like in
+  // the main Menu).
   const focus = (idx: number) => {
     idxRef.current = idx;
     setActive(idx);
@@ -55,33 +55,33 @@ export function HistoryScreen({
 
   useKeyboard((key) => {
     if (key.name === "escape") return onBack();
-    const atual = listaRef.current[idxRef.current];
+    const current = listRef.current[idxRef.current];
     if (key.name === "up" || (key.name === "tab" && key.shift)) return move(-1);
     if (key.name === "down" || key.name === "tab") return move(1);
     if (key.name === "return") {
-      if (atual) onOpen(atual);
+      if (current) onOpen(current);
       return;
     }
     if (!key.ctrl && !key.meta && key.name === "c") {
-      if (!atual || atual.clock === null) {
+      if (!current || current.clock === null) {
         return setStatus({ text: "Essa entrada não tem clock.", tone: "warn" });
       }
-      const { texto, ok } = copiarClock(atual.clock);
+      const { text, ok } = copyClock(current.clock);
       return setStatus({
-        text: ok ? `Clock copiado: ${texto}` : "Falhou ao copiar.",
+        text: ok ? `Clock copiado: ${text}` : "Falhou ao copiar.",
         tone: ok ? "ok" : "err",
       });
     }
     if (key.name === "d" || key.name === "delete" || key.name === "backspace") {
-      if (!atual) return;
-      const nova = removerEntrada(atual.id);
-      idxRef.current = Math.max(0, Math.min(idxRef.current, nova.length - 1));
+      if (!current) return;
+      const updated = removeEntry(current.id);
+      idxRef.current = Math.max(0, Math.min(idxRef.current, updated.length - 1));
       setActive(idxRef.current);
-      setLista(nova);
+      setList(updated);
       return setStatus({ text: "Entrada removida.", tone: "ok" });
     }
     if (key.ctrl && key.name === "l") {
-      setLista(limparHistorico());
+      setList(clearHistory());
       idxRef.current = 0;
       setActive(0);
       return setStatus({ text: "Histórico limpo.", tone: "ok" });
@@ -95,16 +95,16 @@ export function HistoryScreen({
         Enter reabre o cálculo · C copia o clock · d apaga · Ctrl+L limpa tudo
       </text>
 
-      {lista.length === 0 ? (
+      {list.length === 0 ? (
         <Panel title="Vazio">
           <text fg={theme.muted}>
             Nenhum cálculo salvo ainda. Use Ctrl+S nas telas de cálculo.
           </text>
         </Panel>
       ) : (
-        <Panel title={`${lista.length} cálculo(s)`} flexGrow={1}>
+        <Panel title={`${list.length} cálculo(s)`} flexGrow={1}>
           <box flexDirection="column">
-            {lista.map((e, idx) => {
+            {list.map((e, idx) => {
               const on = idx === active;
               return (
                 <box
@@ -124,7 +124,7 @@ export function HistoryScreen({
                       {(on ? "› " : "  ") + e.nome}
                     </text>
                     <text fg={theme.muted}>
-                      [{NOMES_MODO[e.modo]}]
+                      [{MODE_LABELS[e.modo]}]
                       {e.clock !== null ? `  ${fmt(e.clock, 2)}%` : ""}
                     </text>
                   </box>
@@ -136,7 +136,7 @@ export function HistoryScreen({
         </Panel>
       )}
 
-      <text fg={theme.muted}>{CAMINHO_HISTORICO}</text>
+      <text fg={theme.muted}>{HISTORY_PATH}</text>
     </box>
   );
 }

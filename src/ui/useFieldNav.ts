@@ -5,28 +5,37 @@ export interface FieldNavActions {
   onBack: () => void;
   onCopy?: () => void;
   onSave?: () => void;
-  /** restaura os campos ao estado inicial do formulário (volta pro 1º campo) */
+  /** restores the fields to the form's initial state (moves back to the 1st field) */
   onReset?: () => void;
+  /**
+   * Whether the form currently differs from its initial values. Drives the
+   * two-stage Esc (clear first, then leave). Must read LIVE field values (via a
+   * ref) since the keyboard handler is bound once and would otherwise see stale
+   * first-render values.
+   */
+  isDirty?: () => boolean;
 }
 
 /**
- * Navegação compartilhada das telas de cálculo:
- *  - Tab / Shift+Tab e setas ↑↓ alternam o campo focado
- *  - Enter passa para o próximo campo; no ÚLTIMO, volta o foco pro primeiro
- *    (só navega — NÃO salva nem limpa: salvar é só Ctrl+S e limpar é só
- *    Ctrl+Backspace, pra um Enter sem querer nunca perder o que foi digitado
- *    nem abrir o prompt de nome)
- *  - Ctrl+Backspace reseta o formulário e volta pro primeiro campo
- *  - Esc volta, C copia, Ctrl+S salva
- * Ctrl/Esc são usados para não "vazarem" como texto; o C puro é exceção
- * segura porque todos os campos destas telas são numéricos (o sanitizador
- * de Field descarta a letra) e o `paused` desliga o copiar enquanto o
- * SavePrompt — único input de texto livre — está aberto. O reset fica no
- * Ctrl+Backspace (não no Backspace puro) pra que apagar um dígito dentro
- * do campo continue funcionando normalmente.
+ * Shared navigation for the calculation screens:
+ *  - Tab / Shift+Tab and arrows ↑↓ switch the focused field
+ *  - Enter moves to the next field; on the LAST one it wraps focus back to the
+ *    first (it only navigates — it does NOT save or clear: saving is Ctrl+S only,
+ *    so an accidental Enter never loses what was typed nor opens the name prompt)
+ *  - Esc is two-stage: if the form differs from its initial values it CLEARS it
+ *    (back to the initial values, focus on the 1st field); a second Esc — with
+ *    nothing left to clear — actually leaves the screen. This is the reliable
+ *    reset path: many Windows terminals don't send the Ctrl modifier with
+ *    Backspace, so Ctrl+Backspace never fired there. It still works as a
+ *    one-shot reset on terminals that do report it (e.g. with kitty keyboard).
+ *  - C copies, Ctrl+S saves
+ * Ctrl/Esc are used so they don't "leak" as text; bare C is a safe exception
+ * because every field on these screens is numeric (Field's sanitizer drops the
+ * letter) and `paused` turns the copy off while the SavePrompt — the only
+ * free-text input — is open. The bare Backspace stays a normal in-field delete.
  *
- * `paused` desliga toda a navegação (ex.: enquanto um diálogo está aberto),
- * para que as teclas não conflitem com quem está no controle.
+ * `paused` disables all navigation (e.g. while a dialog is open) so the keys
+ * don't conflict with whoever is in control.
  */
 export function useFieldNav(
   count: number,
@@ -34,8 +43,8 @@ export function useFieldNav(
   paused = false,
 ) {
   const [index, setIndex] = useState(0);
-  // Espelhos em ref para ler valores atuais dentro do handler (que o
-  // useKeyboard registra uma única vez) sem closures velhas.
+  // Ref mirrors so the handler (which useKeyboard registers once) can read the
+  // current values without stale closures.
   const idxRef = useRef(0);
   idxRef.current = index;
   const pausedRef = useRef(paused);
@@ -48,16 +57,21 @@ export function useFieldNav(
 
   useKeyboard((key) => {
     if (pausedRef.current) return;
-    if (key.name === "escape") return actions.onBack();
-    // Ctrl+Backspace (ou Ctrl+H, que é o 0x08 que muitos terminais mandam no
-    // lugar) reseta o formulário sem atrapalhar o Backspace puro dos campos.
+    if (key.name === "escape") {
+      // First Esc clears a filled-in form; a second one (nothing left to
+      // clear) leaves the screen.
+      if (actions.onReset && actions.isDirty?.()) return reset();
+      return actions.onBack();
+    }
+    // Ctrl+Backspace (or Ctrl+H, the 0x08 that many terminals send instead)
+    // resets the form without interfering with the bare Backspace in fields.
     if (key.ctrl && (key.name === "backspace" || key.name === "h")) {
       return reset();
     }
     if (!key.ctrl && !key.meta && key.name === "c") return actions.onCopy?.();
     if (key.ctrl && key.name === "s") return actions.onSave?.();
     if (key.name === "return") {
-      // Avança o foco; no último campo dá a volta pro primeiro (não limpa).
+      // Advance the focus; on the last field wrap around to the first (no clear).
       setIndex((idxRef.current + 1) % count);
       return;
     }

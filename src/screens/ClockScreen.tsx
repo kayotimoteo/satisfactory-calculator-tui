@@ -6,9 +6,9 @@ import { Row } from "../components/Row";
 import { SavePrompt } from "../components/SavePrompt";
 import { useField } from "../ui/useField";
 import { useFieldNav } from "../ui/useFieldNav";
-import { copiarClock } from "../lib/clipboard";
-import { salvarEntrada } from "../lib/storage";
-import { corDoClock, theme } from "../ui/theme";
+import { copyClock } from "../lib/clipboard";
+import { saveEntry } from "../lib/storage";
+import { clockColor, theme } from "../ui/theme";
 import {
   CLOCK_MAX,
   calcularClockParaMeta,
@@ -20,41 +20,41 @@ import {
 } from "../lib/satisfactory";
 import type { ScreenProps } from "./types";
 
-// SÓ O CLOCK: quantas máquinas eu tenho, quanto cada uma produz a 100% e qual
-// é a meta -> qual clock preciso. É o cálculo que o script já fazia.
+// JUST THE CLOCK: how many machines I have, how much each produces at 100% and
+// what the target is -> which clock I need. The same calc the script already did.
 export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
-  // Valores iniciais do formulário (o "padrão" pro qual o reset volta).
-  const inicial = {
-    maquinas: seed?.maquinas ?? "",
-    saida100: seed?.saida100 ?? "",
-    meta: seed?.meta ?? "",
+  // Initial form values (the "default" the reset goes back to).
+  const initial = {
+    machines: seed?.maquinas ?? "",
+    output100: seed?.saida100 ?? "",
+    target: seed?.meta ?? "",
   };
-  const maquinas = useField(inicial.maquinas);
-  const saida100 = useField(inicial.saida100);
-  const meta = useField(inicial.meta);
-  const [salvando, setSalvando] = useState(false);
-  // O <input> é semeado, não controlado: pra refletir um reset na tela
-  // remontamos os campos trocando esta key.
+  const machines = useField(initial.machines);
+  const output100 = useField(initial.output100);
+  const target = useField(initial.target);
+  const [saving, setSaving] = useState(false);
+  // The <input> is seeded, not controlled: to reflect a reset on screen we
+  // remount the fields by changing this key.
   const [formKey, setFormKey] = useState(0);
 
-  const dados = useMemo(() => {
-    const m = parseInteiroPositivo(maquinas.value);
-    const s = parseNumero(saida100.value);
-    const t = parseNumero(meta.value);
+  const data = useMemo(() => {
+    const m = parseInteiroPositivo(machines.value);
+    const s = parseNumero(output100.value);
+    const t = parseNumero(target.value);
     if (m === null || s === null || t === null || s <= 0 || t <= 0) return null;
     const info = normalizarTaxaSatisfactory(s);
     return {
       info,
       resultado: calcularClockParaMeta(m, info.valorNormalizado, t),
     };
-  }, [maquinas.value, saida100.value, meta.value]);
+  }, [machines.value, output100.value, target.value]);
 
-  const snap = useRef(dados);
-  snap.current = dados;
-  const refs = useRef({ maquinas, saida100, meta });
-  refs.current = { maquinas, saida100, meta };
+  const snap = useRef(data);
+  snap.current = data;
+  const refs = useRef({ machines, output100, target });
+  refs.current = { machines, output100, target };
 
-  const copiar = () => {
+  const copy = () => {
     const d = snap.current;
     if (!d) return setStatus({ text: "Preencha os campos primeiro.", tone: "warn" });
     if (!d.resultado.possivelNoLimite) {
@@ -63,68 +63,78 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
         tone: "err",
       });
     }
-    const { texto, ok } = copiarClock(d.resultado.clockNecessario);
+    const { text, ok } = copyClock(d.resultado.clockNecessario);
     setStatus({
-      text: ok ? `Clock copiado: ${texto}` : "Falhou ao copiar.",
+      text: ok ? `Clock copiado: ${text}` : "Falhou ao copiar.",
       tone: ok ? "ok" : "err",
     });
   };
 
-  const abrirSalvar = () => {
+  const openSave = () => {
     if (!snap.current) return setStatus({ text: "Nada calculado para salvar.", tone: "warn" });
-    setSalvando(true);
+    setSaving(true);
   };
 
-  const confirmarSalvar = (nome: string) => {
+  const confirmSave = (name: string) => {
     const d = snap.current;
-    if (!d) return setSalvando(false);
+    if (!d) return setSaving(false);
     const c = refs.current;
     const clock = d.resultado.clockNecessario;
-    salvarEntrada({
-      nome: nome || `Clock p/ ${c.meta.value}/min`,
+    saveEntry({
+      nome: name || `Clock p/ ${c.target.value}/min`,
       modo: "clock",
       campos: {
-        maquinas: c.maquinas.value,
-        saida100: c.saida100.value,
-        meta: c.meta.value,
+        maquinas: c.machines.value,
+        saida100: c.output100.value,
+        meta: c.target.value,
       },
-      resumo: `${c.maquinas.value} máq • meta ${c.meta.value}/min → ${fmt(clock, 2)}%`,
+      resumo: `${c.machines.value} máq • meta ${c.target.value}/min → ${fmt(clock, 2)}%`,
       clock: d.resultado.possivelNoLimite ? clock : null,
     });
-    setSalvando(false);
+    setSaving(false);
     setStatus({ text: "Salvo no histórico.", tone: "ok" });
   };
 
-  const resetar = () => {
-    maquinas.set(inicial.maquinas);
-    saida100.set(inicial.saida100);
-    meta.set(inicial.meta);
+  const reset = () => {
+    machines.set(initial.machines);
+    output100.set(initial.output100);
+    target.set(initial.target);
     setFormKey((k) => k + 1);
     setStatus(null);
   };
 
+  // Reads live values via the ref so the (once-bound) Esc handler isn't stale.
+  const isDirty = () => {
+    const c = refs.current;
+    return (
+      c.machines.value !== initial.machines ||
+      c.output100.value !== initial.output100 ||
+      c.target.value !== initial.target
+    );
+  };
+
   const { index, setIndex } = useFieldNav(
     3,
-    { onBack, onCopy: copiar, onSave: abrirSalvar, onReset: resetar },
-    salvando,
+    { onBack, onCopy: copy, onSave: openSave, onReset: reset, isDirty },
+    saving,
   );
   useEffect(() => setStatus(null), [setStatus]);
 
-  const r = dados?.resultado;
-  const foco = salvando ? -1 : index;
-  // Clique do mouse num campo move o foco de teclado pra ele (sincroniza a
-  // borda amarela com onde o OpenTUI já jogou o foco nativo do <input>).
-  const focar = (n: number) => () => {
-    if (!salvando) setIndex(n);
+  const r = data?.resultado;
+  const focus = saving ? -1 : index;
+  // A mouse click on a field moves the keyboard focus to it (syncs the yellow
+  // border with where OpenTUI already placed the <input>'s native focus).
+  const focusField = (n: number) => () => {
+    if (!saving) setIndex(n);
   };
 
   return (
     <box flexDirection="column" gap={1} flexGrow={1}>
-      {salvando ? (
+      {saving ? (
         <SavePrompt
-          defaultName={`Clock p/ ${meta.value || "?"}/min`}
-          onConfirm={confirmarSalvar}
-          onCancel={() => setSalvando(false)}
+          defaultName={`Clock p/ ${target.value || "?"}/min`}
+          onConfirm={confirmSave}
+          onCancel={() => setSaving(false)}
         />
       ) : null}
 
@@ -141,9 +151,9 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
         </text>
 
         <Panel title="Dados">
-          <Field key={`maquinas-${formKey}`} label="Máquinas" value={maquinas.value} focused={foco === 0} onFocusRequest={focar(0)} onInput={maquinas.set} placeholder="ex: 4" numeric="integer" />
-          <Field key={`saida100-${formKey}`} label="Saída por máquina a 100%" value={saida100.value} focused={foco === 1} onFocusRequest={focar(1)} onInput={saida100.set} placeholder="/min" hint="itens/min" numeric="decimal" />
-          <Field key={`meta-${formKey}`} label="Meta total de produção" value={meta.value} focused={foco === 2} onFocusRequest={focar(2)} onInput={meta.set} placeholder="/min" hint="itens/min" numeric="decimal" />
+          <Field key={`maquinas-${formKey}`} label="Máquinas" value={machines.value} focused={focus === 0} onFocusRequest={focusField(0)} onInput={machines.set} placeholder="ex: 4" numeric="integer" />
+          <Field key={`saida100-${formKey}`} label="Saída por máquina a 100%" value={output100.value} focused={focus === 1} onFocusRequest={focusField(1)} onInput={output100.set} placeholder="/min" hint="itens/min" numeric="decimal" />
+          <Field key={`meta-${formKey}`} label="Meta total de produção" value={target.value} focused={focus === 2} onFocusRequest={focusField(2)} onInput={target.set} placeholder="/min" hint="itens/min" numeric="decimal" />
         </Panel>
 
         {r ? (
@@ -153,16 +163,16 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
           >
             <box flexDirection="row" justifyContent="space-between">
               <text fg={theme.textDim}>Clock necessário</text>
-              <text fg={corDoClock(r.tipoClock)} attributes={TextAttributes.BOLD}>
+              <text fg={clockColor(r.tipoClock)} attributes={TextAttributes.BOLD}>
                 {fmt(r.clockNecessario, 4)}%  ({r.tipoClock})
               </text>
             </box>
             <Row label="Meta por máquina" value={`${fmtFlex(r.metaPorMaquina)} /min`} />
             <Row label="Produção em 100%" value={`${fmtFlex(r.producaoTotalEm100)} /min`} />
-            {dados?.info.ajustado ? (
+            {data?.info.ajustado ? (
               <Row
                 label="Ajuste Satisfactory"
-                value={`${dados.info.fracao} (${fmtFlex(dados.info.valorNormalizado)})`}
+                value={`${data.info.fracao} (${fmtFlex(data.info.valorNormalizado)})`}
                 color={theme.warn}
               />
             ) : null}

@@ -1,77 +1,81 @@
-// Persistência do histórico / cálculos salvos.
+// History / saved-calculations persistence.
 //
-// Tudo vai para um único JSON em ~/.satisfactory-calculator-tui/history.json.
-// Mantemos as entradas como strings (o que foi digitado) para conseguir
-// reabrir o cálculo exatamente como estava.
+// Everything goes to a single JSON at ~/.satisfactory-calculator-tui/history.json.
+// We keep the entries as strings (what was typed) so a calculation can be
+// reopened exactly as it was.
+//
+// The persisted keys (mode values, field names like `nome`/`campos`/`resumo`)
+// stay Portuguese on purpose: they are the on-disk data contract, so renaming
+// them would break any history.json already saved.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
-export type ModoCalculo = "clock" | "saida" | "entrada" | "layout";
+export type CalcMode = "clock" | "saida" | "entrada" | "layout";
 
-export interface EntradaHistorico {
+export interface HistoryEntry {
   id: string;
   nome: string;
-  modo: ModoCalculo;
+  modo: CalcMode;
   criadoEm: string; // ISO
-  campos: Record<string, string>; // valores digitados, por campo
-  resumo: string; // linha curta pra lista
-  clock: number | null; // clock relevante (pra copiar rápido do histórico)
+  campos: Record<string, string>; // typed values, by field name
+  resumo: string; // short line for the list
+  clock: number | null; // relevant clock (for quick copy from history)
 }
 
 const DIR = join(homedir(), ".satisfactory-calculator-tui");
-const ARQUIVO = join(DIR, "history.json");
+const FILE = join(DIR, "history.json");
 
-function garantirDir(): void {
+function ensureDir(): void {
   if (!existsSync(DIR)) {
     mkdirSync(DIR, { recursive: true });
   }
 }
 
-export function carregarHistorico(): EntradaHistorico[] {
+export function loadHistory(): HistoryEntry[] {
   try {
-    if (!existsSync(ARQUIVO)) return [];
-    const dados = JSON.parse(readFileSync(ARQUIVO, "utf8"));
-    if (!Array.isArray(dados)) return [];
-    return dados as EntradaHistorico[];
+    if (!existsSync(FILE)) return [];
+    const data = JSON.parse(readFileSync(FILE, "utf8"));
+    if (!Array.isArray(data)) return [];
+    return data as HistoryEntry[];
   } catch {
     return [];
   }
 }
 
-function persistir(lista: EntradaHistorico[]): void {
-  garantirDir();
-  writeFileSync(ARQUIVO, JSON.stringify(lista, null, 2), "utf8");
+function persist(list: HistoryEntry[]): void {
+  ensureDir();
+  writeFileSync(FILE, JSON.stringify(list, null, 2), "utf8");
 }
 
-function gerarId(): string {
+function generateId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Salva uma nova entrada no topo do histórico e devolve a lista atualizada. */
-export function salvarEntrada(
-  entrada: Omit<EntradaHistorico, "id" | "criadoEm">,
-): EntradaHistorico[] {
-  const completa: EntradaHistorico = {
-    ...entrada,
-    id: gerarId(),
+/** Saves a new entry on top of the history and returns the updated list. */
+export function saveEntry(
+  entry: Omit<HistoryEntry, "id" | "criadoEm">,
+): HistoryEntry[] {
+  const complete: HistoryEntry = {
+    ...entry,
+    id: generateId(),
     criadoEm: new Date().toISOString(),
   };
-  const lista = [completa, ...carregarHistorico()];
-  persistir(lista);
-  return lista;
+  const list = [complete, ...loadHistory()];
+  persist(list);
+  return list;
 }
 
-export function removerEntrada(id: string): EntradaHistorico[] {
-  const lista = carregarHistorico().filter((e) => e.id !== id);
-  persistir(lista);
-  return lista;
+export function removeEntry(id: string): HistoryEntry[] {
+  const list = loadHistory().filter((e) => e.id !== id);
+  persist(list);
+  return list;
 }
 
-export function limparHistorico(): EntradaHistorico[] {
-  persistir([]);
+export function clearHistory(): HistoryEntry[] {
+  persist([]);
   return [];
 }
 
-/** Caminho do arquivo, só pra mostrar na tela de histórico. */
-export const CAMINHO_HISTORICO = ARQUIVO;
+/** File path, just to show it on the history screen. */
+export const HISTORY_PATH = FILE;

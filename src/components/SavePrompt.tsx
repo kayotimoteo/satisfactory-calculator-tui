@@ -5,37 +5,37 @@ import { Panel } from "./Panel";
 import { theme } from "../ui/theme";
 
 export interface SavePromptProps {
-  /** nome usado caso o campo fique vazio (mostrado como dica) */
+  /** name used if the field is left empty (shown as a hint) */
   defaultName: string;
-  onConfirm: (nome: string) => void;
+  onConfirm: (name: string) => void;
   onCancel: () => void;
 }
 
 /**
- * Diálogo para pedir o nome ao salvar no histórico. Só aparece quando o
- * usuário pede para salvar — o nome não fica mais no formulário.
- *  - Enter confirma (nome digitado, ou o padrão se vazio)
- *  - Esc cancela
- * Tem seu próprio input focado; a navegação da tela fica pausada enquanto
- * ele está aberto, então não há conflito de teclas.
+ * Dialog that asks for the name when saving to history. It only shows up when
+ * the user asks to save — the name is no longer part of the form.
+ *  - Enter confirms (typed name, or the default if empty)
+ *  - Esc cancels
+ * It has its own focused input; the screen navigation is paused while it's open,
+ * so there's no key conflict.
  */
 export function SavePrompt({ defaultName, onConfirm, onCancel }: SavePromptProps) {
-  const [nome, setNome] = useState("");
-  const nomeRef = useRef("");
-  nomeRef.current = nome;
+  const [name, setName] = useState("");
+  const nameRef = useRef("");
+  nameRef.current = name;
 
   useKeyboard((key) => {
     if (key.name === "escape") return onCancel();
-    if (key.name === "return") return onConfirm(nomeRef.current.trim());
+    if (key.name === "return") return onConfirm(nameRef.current.trim());
   });
 
   return (
     <Panel title="Salvar no histórico" borderColor={theme.accent}>
       <Field
         label="Nome"
-        value={nome}
+        value={name}
         focused
-        onInput={setNome}
+        onInput={setName}
         placeholder={defaultName}
         width={30}
       />
