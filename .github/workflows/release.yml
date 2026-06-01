@@ -58,19 +58,42 @@ jobs:
             sfcalc-*-windows-x64.exe
             sfcalc-*-windows-x64.exe.sha256
 
-      # Escaneia o .exe no VirusTotal e anexa os links da análise na descrição da
-      # Release (update_release_body). É só informativo: binário compilado com Bun
+      # Escaneia o .exe no VirusTotal. É só informativo: binário compilado com Bun
       # costuma gerar falso-positivo de AV, então NÃO falhamos o job aqui.
       # Requer o secret VT_API_KEY (Settings > Secrets and variables > Actions).
       # if: garante que só roda quando a key existir, evitando quebrar forks.
+      #
+      # NÃO usamos update_release_body: essa opção da action só funciona quando o
+      # workflow é disparado por um evento `release` (lê github.event.release).
+      # Como aqui o gatilho é push de tag, ela escaneia mas não edita o corpo.
+      # Por isso pegamos a saída `analysis` e anexamos na descrição no passo abaixo.
       - name: Scan release on VirusTotal
+        id: vt
         if: ${{ env.VT_API_KEY != '' }}
         env:
           VT_API_KEY: ${{ secrets.VT_API_KEY }}
         uses: crazy-max/ghaction-virustotal@v4
         with:
           vt_api_key: ${{ secrets.VT_API_KEY }}
-          update_release_body: true
           request_rate: 4 # respeita o limite do tier público (4 req/min)
           files: |
             sfcalc-*-windows-x64.exe
+
+      # Anexa os links da análise ao corpo da Release usando a saída `analysis`
+      # (formato: "arquivo1=url1,arquivo2=url2"). Split em '=' limitado a 2 partes
+      # porque a URL do VT contém '==' (padding base64).
+      - name: Append VirusTotal links to release notes
+        if: ${{ steps.vt.outputs.analysis != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          ANALYSIS: ${{ steps.vt.outputs.analysis }}
+        run: |
+          $lines = foreach ($item in ($env:ANALYSIS -split ',')) {
+            $name, $url = $item -split '=', 2
+            "- [$name]($url)"
+          }
+          $current = gh release view $env:TAG --json body --jq .body
+          $section = "`n`n## VirusTotal`n`nBinários compilados com Bun costumam gerar falso-positivo de AV. Resultados da análise:`n`n" + ($lines -join "`n")
+          Set-Content -Path vt-notes.md -Value ($current + $section) -Encoding utf8
+          gh release edit $env:TAG --notes-file vt-notes.md
