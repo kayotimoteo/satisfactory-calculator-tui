@@ -1,0 +1,27 @@
+{
+  "name": "satisfactory-calculator-tui",
+  "module": "src/index.tsx",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "sfcalc": "src/index.tsx"
+  },
+  "scripts": {
+    "start": "bun run src/index.tsx",
+    "dev": "bun run --watch src/index.tsx",
+    "typecheck": "tsc --noEmit",
+    "build:exe": "bun run scripts/build-exe.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "19"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.3.0",
+    "@opentui/react": "^0.3.0",
+    "react": "^19.2.6"
+  }
+}
