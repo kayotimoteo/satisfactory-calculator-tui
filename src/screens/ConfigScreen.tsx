@@ -5,7 +5,7 @@ import { Panel } from "../components/Panel";
 import { theme } from "../ui/theme";
 import { useConfig } from "../ui/ConfigContext";
 import { BELT_TIERS, PIPE_TIERS, CONFIG_PATH, type TransportTier } from "../lib/config";
-import { useT, detectLocale, type LanguagePref } from "../i18n";
+import { useT, detectLocale, messages, resolveLocale, type LanguagePref } from "../i18n";
 import type { StatusMsg } from "../components/Footer";
 
 // Settings screen. Opens automatically on the first run, then lives behind the
@@ -102,8 +102,9 @@ export function ConfigScreen({
     } else {
       const opt = LANG_OPTIONS[i];
       if (opt && opt.value !== config.language) {
+        const nextT = messages[resolveLocale(opt.value)];
         update({ language: opt.value });
-        setStatus({ tone: "ok", text: t.config.languageSaved });
+        setStatus({ tone: "ok", text: nextT.config.languageSaved });
       }
     }
   };
