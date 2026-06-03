@@ -1,11 +1,13 @@
-// React context that exposes the active locale and its message table.
+// React context that exposes the active locale and its Intlayer message table.
 //
 // The locale is derived from the user's language preference (stored in config):
 // "system" (or unset) defers to OS detection (see `detect.ts`), an explicit
 // locale pins the language. Because the preference is passed in as a prop, the
 // UI re-renders live when the language is changed on the settings screen.
 import { createContext, useContext, useMemo, type ReactNode } from "react";
+import appContent from "./app.content";
 import { messages, type Locale, type LanguagePref, type Messages } from "./messages";
+import { resolveIntlayerDictionary } from "./defineIntlayerDictionary";
 import { detectLocale } from "./detect";
 
 interface I18nValue {
@@ -30,7 +32,7 @@ export function I18nProvider({
 }) {
   const locale = useMemo(() => resolveLocale(language), [language]);
   const value = useMemo<I18nValue>(
-    () => ({ locale, t: messages[locale] }),
+    () => ({ locale, t: resolveIntlayerDictionary(appContent, locale, messages) }),
     [locale],
   );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
@@ -45,4 +47,9 @@ export function useI18n(): I18nValue {
 /** Shortcut for the common case: just the message table for the active locale. */
 export function useT(): Messages {
   return useI18n().t;
+}
+
+/** Narrower hook for new screens/components that only need one i18n section. */
+export function useTSection<K extends keyof Messages>(section: K): Messages[K] {
+  return useT()[section];
 }

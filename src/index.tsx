@@ -9,7 +9,7 @@ import { ConfigProvider, useConfig } from "./ui/ConfigContext";
 // sequence "CSI 8 ; rows ; columns t" and resizes the window on open. Terminals
 // that don't support it (e.g. old conhost) just ignore the sequence.
 const DEFAULT_COLUMNS = 100;
-const DEFAULT_ROWS = 50;
+const DEFAULT_ROWS = 48;
 if (process.stdout.isTTY) {
 	process.stdout.write(`\x1b[8;${DEFAULT_ROWS};${DEFAULT_COLUMNS}t`);
 }
