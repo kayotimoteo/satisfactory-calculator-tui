@@ -16,6 +16,7 @@ import {
   calcularLayoutPorEntrada,
   fileirasMinimasRecomendadas,
   fmt,
+  fmtClockClipboard,
   fmtFlex,
   normalizarTaxaSatisfactory,
   parseInteiroPositivo,
@@ -177,7 +178,7 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
     const line = t.layout.summary(
       `${d.base.totalMaquinas}`,
       c.rows.value,
-      fmt(d.base.clockExato, 4),
+      fmtClockClipboard(d.base.clockExato),
     );
     setStatus(copyWithStatus(line, t.common.textCopied, t.common.copyFailed));
   };
@@ -205,7 +206,7 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
       resumo: t.layout.summary(
         `${d.base.totalMaquinas}`,
         c.rows.value,
-        fmt(d.base.clockExato, 2),
+        fmtClockClipboard(d.base.clockExato),
       ),
       clock: d.base.clockExato,
     });

@@ -14,6 +14,7 @@ import {
   CLOCK_MAX,
   calcularClockParaMeta,
   fmt,
+  fmtClockClipboard,
   fmtFlex,
   normalizarTaxaSatisfactory,
   parseInteiroPositivo,
@@ -87,7 +88,7 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
     const r = d.resultado;
     const c = refs.current;
     const line = r.possivelNoLimite
-      ? t.clock.summary(c.machines.value, c.target.value, fmt(r.clockNecessario, 4))
+      ? t.clock.summary(c.machines.value, c.target.value, fmtClockClipboard(r.clockNecessario))
       : t.clock.unfeasible;
     setStatus(copyWithStatus(line, t.common.textCopied, t.common.copyFailed));
   };
@@ -110,7 +111,7 @@ export function ClockScreen({ seed, onBack, setStatus }: ScreenProps) {
         saida100: c.output100.value,
         meta: c.target.value,
       },
-      resumo: t.clock.summary(c.machines.value, c.target.value, fmt(clock, 2)),
+      resumo: t.clock.summary(c.machines.value, c.target.value, fmtClockClipboard(clock)),
       clock: d.resultado.possivelNoLimite ? clock : null,
     });
     setSaving(false);
