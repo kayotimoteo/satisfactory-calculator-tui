@@ -12,18 +12,9 @@ export interface StatusMsg {
 
 export function Footer({
   hints,
-  status,
 }: {
   hints: Hint[];
-  status: StatusMsg | null;
 }) {
-  const toneColor =
-    status?.tone === "ok"
-      ? theme.ok
-      : status?.tone === "err"
-        ? theme.err
-        : theme.warn;
-
   // Legend split across two lines: the first half of the shortcuts on top, the
   // rest below — so it doesn't overflow the width when there are many commands.
   const half = Math.ceil(hints.length / 2);
@@ -48,7 +39,6 @@ export function Footer({
           </box>
         ))}
       </box>
-      {status ? <text fg={toneColor}>{status.text}</text> : null}
     </box>
   );
 }

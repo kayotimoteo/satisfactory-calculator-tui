@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useRenderer } from "@opentui/react";
 import { Header } from "./components/Header";
 import { Footer, type Hint, type StatusMsg } from "./components/Footer";
+import { Toast } from "./components/Toast";
 import { MenuScreen } from "./screens/MenuScreen";
 import { ClockScreen } from "./screens/ClockScreen";
 import { RateScreen } from "./screens/RateScreen";
@@ -161,7 +162,8 @@ export function App() {
         )}
       </box>
 
-      <Footer hints={hints} status={status} />
+      <Footer hints={hints} />
+      <Toast status={status} />
     </box>
   );
 }
