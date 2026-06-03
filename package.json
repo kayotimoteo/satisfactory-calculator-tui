@@ -1,6 +1,6 @@
 {
   "name": "satisfactory-calculator-tui",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Calculadora de fábrica do Satisfactory rodando no terminal (TUI), feita com OpenTUI + React sobre Bun.",
   "license": "MIT",
   "author": "Kayo Timoteo Rossales",

@@ -12,7 +12,7 @@ import {
   type HistoryEntry,
 } from "../lib/storage";
 import { theme } from "../ui/theme";
-import { fmt } from "../lib/satisfactory";
+import { fmtClockClipboard } from "../lib/satisfactory";
 import { useT } from "../i18n";
 import type { StatusMsg } from "../components/Footer";
 
@@ -130,7 +130,7 @@ export function HistoryScreen({
                     </text>
                     <text fg={theme.muted}>
                       [{t.modes[e.modo]}]
-                      {e.clock !== null ? `  ${fmt(e.clock, 2)}%` : ""}
+                      {e.clock !== null ? `  ${fmtClockClipboard(e.clock)}%` : ""}
                     </text>
                   </box>
                   <text fg={theme.textDim}>{"   " + e.resumo}</text>
