@@ -13,6 +13,7 @@
   "scripts": {
     "start": "bun run src/index.tsx",
     "dev": "bun run --watch src/index.tsx",
+    "i18n:build": "intlayer build",
     "typecheck": "tsc --noEmit",
     "build:exe": "bun run scripts/build-exe.ts"
   },
@@ -27,6 +28,7 @@
   "dependencies": {
     "@opentui/core": "^0.3.0",
     "@opentui/react": "^0.3.0",
+    "intlayer": "^8.12.0",
     "react": "^19.2.6"
   }
 }
