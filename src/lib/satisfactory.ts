@@ -43,15 +43,17 @@ export type LayoutErrorCode =
   | "clockOutOfRange"
   | "outputNonPositive"
   | "rowLimitExceeded"
+  | "outputRowLimitExceeded"
   | "inputPerMachineInvalid";
 
 export interface LayoutErrorData {
   code: LayoutErrorCode;
   /** clock ceiling, for `clockOutOfRange` */
   max?: number;
-  /** items/min each row would receive, for `rowLimitExceeded` */
+  /** items/min each row would receive (input) or put out (output), for
+   * `rowLimitExceeded` / `outputRowLimitExceeded` */
   perRow?: number;
-  /** per-row item limit, for `rowLimitExceeded` */
+  /** per-row item limit, for `rowLimitExceeded` / `outputRowLimitExceeded` */
   limit?: number;
 }
 
@@ -449,6 +451,21 @@ export function calcularLayoutPorEntrada(
       clockEscolhido,
     );
     const saidaPorMaquinaNoClockExato = capacidadePorMaquina(saida100, clockExato);
+    const saidaPorFileiraNoClockExato =
+      maquinasPorFileiraMinimas * saidaPorMaquinaNoClockExato;
+
+    // The belt/pipe that carries each row's OUTPUT away is bound by the same
+    // per-row limit as the input. At the exact (recommended) clock each row puts
+    // out `saidaPorFileiraNoClockExato`; total output is fixed at
+    // target × (saída/entrada), so the only fix is more rows. Without this check
+    // a single-row layout could quietly produce e.g. 4000/min into a Mk.6 belt.
+    if (saidaPorFileiraNoClockExato > limite + EPSILON) {
+      throw new LayoutError({
+        code: "outputRowLimitExceeded",
+        perRow: saidaPorFileiraNoClockExato,
+        limit: limite,
+      });
+    }
 
     resultado.saida100 = saida100;
     resultado.saidaPorMaquinaNoClockEscolhido = saidaPorMaquinaNoClockEscolhido;
@@ -457,8 +474,7 @@ export function calcularLayoutPorEntrada(
     resultado.saidaTotalNoClockEscolhido =
       totalMaquinas * saidaPorMaquinaNoClockEscolhido;
     resultado.saidaPorMaquinaNoClockExato = saidaPorMaquinaNoClockExato;
-    resultado.saidaPorFileiraNoClockExato =
-      maquinasPorFileiraMinimas * saidaPorMaquinaNoClockExato;
+    resultado.saidaPorFileiraNoClockExato = saidaPorFileiraNoClockExato;
     resultado.saidaTotalNoClockExato = totalMaquinas * saidaPorMaquinaNoClockExato;
   }
 
@@ -467,14 +483,30 @@ export function calcularLayoutPorEntrada(
 
 /**
  * Minimum recommended number of rows for the calculation to "close": each row
- * receives at most {@link LIMITE_FILEIRA} items/min, so we need at least
- * `ceil(target / LIMITE_FILEIRA)` rows. Returns null if the target is invalid
- * (<= 0).
+ * receives at most {@link LIMITE_FILEIRA} items/min on its INPUT belt, so we
+ * need at least `ceil(target / LIMITE_FILEIRA)` rows. When an output rate is
+ * given, the OUTPUT belt is bound by the same limit: total output is fixed at
+ * `target × (saída/entrada)`, so it can force more rows than the input alone.
+ * The minimum is the max of both. Returns null if the target is invalid (<= 0).
  */
 export function fileirasMinimasRecomendadas(
   metaEntradaTotal: number,
   limite: number = LIMITE_FILEIRA,
+  entrada100: number | null = null,
+  saida100: number | null = null,
 ): number | null {
   if (!Number.isFinite(metaEntradaTotal) || metaEntradaTotal <= 0) return null;
-  return Math.max(1, Math.ceil(metaEntradaTotal / limite));
+  let minimo = Math.max(1, Math.ceil(metaEntradaTotal / limite));
+
+  if (
+    entrada100 !== null &&
+    entrada100 > 0 &&
+    saida100 !== null &&
+    saida100 > 0
+  ) {
+    const saidaTotal = metaEntradaTotal * (saida100 / entrada100);
+    minimo = Math.max(minimo, Math.ceil(saidaTotal / limite));
+  }
+
+  return minimo;
 }

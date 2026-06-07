@@ -86,6 +86,8 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
         return E.clockOutOfRange(err.max ?? CLOCK_PADRAO);
       case "rowLimitExceeded":
         return E.rowLimitExceeded(fmtFlex(err.perRow ?? 0), err.limit ?? 0);
+      case "outputRowLimitExceeded":
+        return E.outputRowLimitExceeded(fmtFlex(err.perRow ?? 0), err.limit ?? 0);
       case "targetNonPositive":
         return E.targetNonPositive;
       case "inputNonPositive":
@@ -102,8 +104,13 @@ export function LayoutScreen({ seed, onBack, setStatus }: ScreenProps) {
   // Minimum recommended number of rows, updated as the target is typed.
   const minRows = useMemo(() => {
     const target = parseNumero(targetInput.value);
-    return target === null ? null : fileirasMinimasRecomendadas(target, limite);
-  }, [targetInput.value, limite]);
+    if (target === null) return null;
+    // Account for the output belt too (it shares the per-row limit): an output
+    // rate can force more rows than the input alone — see calc core.
+    const input = parseNumero(input100.value);
+    const out = output100.value.trim() === "" ? null : parseNumero(output100.value);
+    return fileirasMinimasRecomendadas(target, limite, input, out);
+  }, [targetInput.value, input100.value, output100.value, limite]);
   const currentRows = parseInteiroPositivo(rows.value);
   const rowsInsufficient =
     minRows !== null && currentRows !== null && currentRows < minRows;
