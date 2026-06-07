@@ -184,6 +184,9 @@ const ptBR = {
       rowLimitExceeded: (perRow: string, limit: number) =>
         `Cada fileira precisaria receber ${perRow} itens/min, mas o limite é ` +
         `${limit} itens/min por fileira. Aumente o número de fileiras.`,
+      outputRowLimitExceeded: (perRow: string, limit: number) =>
+        `Cada fileira produziria ${perRow} itens/min de saída, mas o limite é ` +
+        `${limit} itens/min por fileira. Aumente o número de fileiras.`,
       inputPerMachineInvalid: "A entrada por máquina no clock informado é inválida.",
     },
   },
@@ -389,6 +392,9 @@ const enUS: Messages = {
       outputNonPositive: "The output per machine at 100% must be greater than zero.",
       rowLimitExceeded: (perRow, limit) =>
         `Each row would need to receive ${perRow} items/min, but the limit is ` +
+        `${limit} items/min per row. Increase the number of rows.`,
+      outputRowLimitExceeded: (perRow, limit) =>
+        `Each row would output ${perRow} items/min, but the limit is ` +
         `${limit} items/min per row. Increase the number of rows.`,
       inputPerMachineInvalid: "The input per machine at the given clock is invalid.",
     },
